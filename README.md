@@ -13,18 +13,16 @@ This project mimics core functionality of professional network scanning tools an
 
 # 🚀 Features
 
-- Host Discovery (ICMP Scan)
-- SYN Port Scanning
-- Service Detection
-- Banner Grabbing
-- OS Fingerprinting
-- Device Type Detection
-- Multi-threaded Scanning
-- CLI Interface
-- JSON Export
-- HTML Report Generation
-- Colored Output
-- Progress Bar
+| Feature | Status |
+|--------|--------|
+| Host Discovery | ✅ |
+| SYN Scan | ✅ |
+| OS Detection | ✅ |
+| Service Detection | ✅ |
+| Multi-threading | ✅ |
+| HTML Reports | ✅ |
+| UDP Scan | ❌ (Planned) |
+| Vulnerability Scan | ❌ (Planned) |
 
 ---
 
@@ -57,6 +55,14 @@ scan_report.html
 
 ---
 
+# 📦 Requirements
+
+- Python 3.8+
+- Scapy
+- Tabulate
+- tqdm
+- colorama
+  
 # ⚙️ Installation
 
 Clone the repository:
@@ -73,6 +79,38 @@ pip install -r requirements.txt
 ```
 
 ---
+
+# ⚙️ Command Line Options
+
+| Option | Description |
+|--------|-------------|
+| -n | Scan network range |
+| -t | Target single host |
+| -p | Port range |
+| -h | Help menu |
+
+Example:
+
+```bash
+python3 test.py -t 192.168.1.1 -p 1-1000
+```
+
+---
+
+# ⚡ Quick Start
+
+Run a quick scan:
+
+```bash
+sudo python3 test.py -n 192.168.1.0/24
+```
+
+Results will be saved to:
+
+```
+scan_results.json
+scan_report.html
+```
 
 # 💡 Why This Project?
 
@@ -194,6 +232,17 @@ open scan_report.html
 - Export to CSV
 
 ---
+
+# 📌 Version
+
+Current Version: 1.0
+
+Changelog:
+- v1.0 Initial release
+- Host discovery
+- SYN scanning
+- OS detection
+- HTML reporting
 
 # 👨‍💻 Author
 
