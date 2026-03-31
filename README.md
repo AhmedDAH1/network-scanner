@@ -2,6 +2,8 @@
 
 ![Python](https://img.shields.io/badge/python-3.10-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
+![Status](https://img.shields.io/badge/status-active-success)
+![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macOS-lightgrey)
 
 A **multi-threaded network scanner** built in Python with **SYN scanning, OS detection, service detection, device fingerprinting, and reporting**.
 
@@ -60,17 +62,29 @@ scan_report.html
 Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/network-scanner.git
+git clone https://github.com/AhmedDAH1/network-scanner.git
 cd network-scanner
 ```
 
 Install dependencies:
 
 ```bash
-pip install scapy tabulate tqdm colorama
+pip install -r requirements.txt
 ```
 
 ---
+
+# 💡 Why This Project?
+
+This project was built to better understand:
+
+- TCP/IP Networking
+- Packet Crafting
+- Port Scanning Techniques
+- OS Fingerprinting
+- Multi-threaded Python Applications
+
+It mimics core functionality of tools like Nmap while being implemented from scratch for learning purposes.
 
 # 🧠 Usage
 
