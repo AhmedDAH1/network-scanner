@@ -1,5 +1,8 @@
 # 🔎 Network Scanner
 
+![Python](https://img.shields.io/badge/python-3.10-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 A **multi-threaded network scanner** built in Python with **SYN scanning, OS detection, service detection, device fingerprinting, and reporting**.
 
 This project mimics core functionality of professional network scanning tools and demonstrates **networking, cybersecurity, and software engineering skills**.
