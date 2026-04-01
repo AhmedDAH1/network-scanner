@@ -2,3 +2,4 @@ scapy
 tabulate
 tqdm
 colorama
+manuf

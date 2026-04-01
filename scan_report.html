@@ -1,38 +1,20 @@
-
-    <html>
-    <head>
-        <title>Network Scan Report</title>
-        <style>
-        body { font-family: Arial; }
-        table { border-collapse: collapse; width: 60%; }
-        th, td { border: 1px solid black; padding: 8px; }
-        th { background-color: #f2f2f2; }
-        </style>
-    </head>
-    <body>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Network Scan Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f9f9f9; }
+        h1 { color: #333; }
+        h2 { color: #0066cc; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+        h3 { color: #444; margin-top: 16px; }
+        table { border-collapse: collapse; width: 70%; margin-bottom: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: left; }
+        th { background-color: #e8e8e8; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
     <h1>Network Scan Results</h1>
-    <h2>192.168.1.14</h2><p><b>OS:</b> Linux / macOS</p><p><b>Device:</b> Unknown</p><table><tr><th>Port</th><th>Service</th><th>Banner</th></tr></table><h2>192.168.1.2</h2><p><b>OS:</b> Linux / macOS</p><p><b>Device:</b> Unknown</p><table><tr><th>Port</th><th>Service</th><th>Banner</th></tr>
-            <tr>
-                <td>53</td>
-                <td>DNS</td>
-                <td>None</td>
-            </tr>
-            
-            <tr>
-                <td>80</td>
-                <td>HTTP</td>
-                <td></td>
-            </tr>
-            </table><h2>192.168.1.1</h2><p><b>OS:</b> Linux / macOS</p><p><b>Device:</b> Unknown</p><table><tr><th>Port</th><th>Service</th><th>Banner</th></tr>
-            <tr>
-                <td>53</td>
-                <td>DNS</td>
-                <td>None</td>
-            </tr>
-            
-            <tr>
-                <td>80</td>
-                <td>HTTP</td>
-                <td>None</td>
-            </tr>
-            </table></body></html>
+    <h2>192.168.1.2</h2><p><b>MAC:</b> 88:6e:dd:f2:76:19 &nbsp;|&nbsp; <b>Vendor:</b> TP-Link</p><p><b>OS:</b> Linux / macOS &nbsp;|&nbsp; <b>Device:</b> Router / AP</p><h3>TCP Ports</h3><table><tr><th>Port</th><th>Service</th><th>Banner</th></tr><tr><td>53</td><td>DNS</td><td></td></tr><tr><td>80</td><td>HTTP</td><td></td></tr></table><h2>192.168.1.1</h2><p><b>MAC:</b> 68:9a:21:2e:6a:a0 &nbsp;|&nbsp; <b>Vendor:</b> Netgear</p><p><b>OS:</b> Linux / macOS &nbsp;|&nbsp; <b>Device:</b> Router / AP</p><h3>TCP Ports</h3><table><tr><th>Port</th><th>Service</th><th>Banner</th></tr><tr><td>53</td><td>DNS</td><td></td></tr><tr><td>80</td><td>HTTP</td><td></td></tr></table><h2>192.168.1.8</h2><p><b>MAC:</b> 32:42:ee:a7:b0:87 &nbsp;|&nbsp; <b>Vendor:</b> Randomized MAC (Privacy Mode)</p><p><b>OS:</b> Unknown &nbsp;|&nbsp; <b>Device:</b> Unknown (Randomized MAC (Privacy Mode))</p><p>No open TCP ports found.</p>
+</body>
+</html>
