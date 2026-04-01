@@ -55,6 +55,10 @@ scan_report.html
 
 ---
 
+# 🎬 Demo
+
+![Network Scanner Demo](assets/demo.gif)
+
 # 📦 Requirements
 
 - Python 3.8+
