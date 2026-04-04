@@ -5,7 +5,7 @@
 ![Status](https://img.shields.io/badge/status-active-success)
 ![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macOS-lightgrey)
  
-A **multi-threaded network scanner** built in Python with SYN scanning, UDP scanning, OS detection, MAC vendor lookup, service detection, and HTML/JSON reporting.
+A **multi-threaded network scanner** built in Python with SYN scanning, UDP scanning, OS detection, MAC vendor lookup, service detection, vulnerability scanning, and HTML/JSON reporting.
  
 This project mimics core functionality of professional tools like Nmap while being implemented from scratch for learning purposes.
  
@@ -25,9 +25,9 @@ This project mimics core functionality of professional tools like Nmap while bei
 | Randomized MAC Detection | ✅ |
 | Banner Grabbing | ✅ |
 | Multi-threading | ✅ |
+| Vulnerability Scan (CVE lookup) | ✅ |
 | JSON Reports | ✅ |
 | HTML Reports | ✅ |
-| Vulnerability Scan | ❌ Planned |
 | CSV Export | ❌ Planned |
 | Web Interface | ❌ Planned |
  
@@ -37,7 +37,7 @@ This project mimics core functionality of professional tools like Nmap while bei
  
 ```
 ###########################################
-#        NETWORK SCANNER v1.0            #
+#        NETWORK SCANNER v1.2            #
 #        Author: Ahmed Dahdouh           #
 ###########################################
  
@@ -45,13 +45,14 @@ This project mimics core functionality of professional tools like Nmap while bei
 [+] Detected active interface: en0 (192.168.1.13)
 [+] Running ARP Scan on interface en0...
 [+] ARP scan found 3 host(s).
+[+] mDNS probe (8s) — listening for device announcements...
  
 ─────────────────────────────────────────────
 Scanning host: 192.168.1.1  [68:9a:21:2e:6a:a0]
 ─────────────────────────────────────────────
-  OS:     Linux / macOS
-  Device: Router / AP
-  Vendor: Netgear
+  OS:       Linux / macOS
+  Device:   Router / AP
+  Vendor:   Netgear
  
 [+] TCP SYN Scan (1-1000)...
 ╒════════╤═══════════╤══════════╕
@@ -61,6 +62,10 @@ Scanning host: 192.168.1.1  [68:9a:21:2e:6a:a0]
 ├────────┼───────────┼──────────┤
 │     80 │ HTTP      │          │
 ╘════════╧═══════════╧══════════╛
+ 
+[+] Vulnerability scan — checking 2 port(s)...
+    192.168.1.1:53 (DNS)  → 3 CVE(s), worst: CRITICAL
+    192.168.1.1:80 (HTTP) → 3 CVE(s), worst: CRITICAL
  
 [+] JSON report saved → scan_results.json
 [+] HTML report saved → scan_report.html
@@ -119,9 +124,19 @@ sudo python3 test.py -t 192.168.1.1 -p 1-65535
 sudo python3 test.py -t 192.168.1.1 --udp
 ```
  
-### Combine options
+### Enable vulnerability scan (NVD API)
 ```bash
-sudo python3 test.py -n 192.168.1.0/24 -p 1-500 --udp
+sudo python3 test.py -n 192.168.1.0/24 --vuln
+```
+ 
+### Vulnerability scan offline only (no internet required)
+```bash
+sudo python3 test.py -n 192.168.1.0/24 --vuln --no-api
+```
+ 
+### Combine all options
+```bash
+sudo python3 test.py -n 192.168.1.0/24 -p 1-500 --udp --vuln
 ```
  
 ---
@@ -134,6 +149,8 @@ sudo python3 test.py -n 192.168.1.0/24 -p 1-500 --udp
 | `-t` | Scan a single host |
 | `-p` | Port range (default: `1-1000`) |
 | `--udp` | Enable UDP scan on common ports |
+| `--vuln` | Enable CVE vulnerability scan (uses NVD API) |
+| `--no-api` | Use offline CVE table only (no internet needed) |
 | `-h` | Show help menu |
  
 ---
@@ -144,6 +161,7 @@ sudo python3 test.py -n 192.168.1.0/24 -p 1-500 --udp
 network-scanner/
 │
 ├── test.py                  # Main entry point & CLI
+├── report_template.html     # HTML report template
 ├── requirements.txt         # Python dependencies
 ├── scan_results.json        # Generated JSON report
 ├── scan_report.html         # Generated HTML report
@@ -156,6 +174,8 @@ network-scanner/
     ├── service_detection.py # Port-to-service mapping + banner grabbing
     ├── os_fingerprint.py    # TTL-based OS fingerprinting
     ├── device_detection.py  # MAC vendor lookup + device classification
+    ├── mdns_probe.py        # mDNS/Bonjour device identification
+    ├── vuln_scan.py         # CVE lookup via NVD API + offline table
     └── port_scanner.py      # TCP connect scan (fallback)
 ```
  
@@ -172,12 +192,16 @@ network-scanner/
     "os": "Linux / macOS",
     "device": "Router / AP",
     "tcp_ports": [
-      { "port": 53, "service": "DNS", "banner": null },
-      { "port": 80, "service": "HTTP", "banner": null }
+      {
+        "port": 53,
+        "service": "DNS",
+        "banner": null,
+        "cves": [
+          { "id": "CVE-2020-1350", "severity": "CRITICAL", "desc": "Windows DNS Server RCE (SIGRed)" }
+        ]
+      }
     ],
-    "udp_ports": [
-      { "port": 53, "service": "DNS" }
-    ]
+    "udp_ports": []
   }
 ]
 ```
@@ -193,7 +217,7 @@ open scan_report.html       # macOS
 xdg-open scan_report.html  # Linux
 ```
  
-The report includes per-host sections with OS, vendor, device type, and separate TCP and UDP port tables.
+The report includes per-host sections with OS, vendor, device type, TCP/UDP port tables, and CVE listings per port with color-coded severity ratings.
  
 ---
  
@@ -211,26 +235,34 @@ The report includes per-host sections with OS, vendor, device type, and separate
  
 **Service Detection** — Maps open ports to known service names and attempts banner grabbing to identify the exact software running.
  
+**Vulnerability Scan** — Queries the NIST NVD API for CVEs matching each detected service. Falls back to a curated offline table covering FTP, SSH, HTTP, DNS, RDP, SMB, MySQL and more when offline. CVEs are rated CRITICAL / HIGH / MEDIUM / LOW using CVSS scores.
+ 
 ---
  
 ## 🔮 Future Improvements
  
-- Vulnerability detection (CVE lookup per service/version)
 - CSV export
 - Web interface / dashboard
-- Stealth scan improvements
+- Improved OS fingerprinting (TCP stack analysis)
+- Version-aware CVE matching via banner grabbing
 - IPv6 support
  
 ---
  
 ## 📌 Changelog
  
+**v1.2**
+- Added vulnerability scan (CVE lookup via NVD API + offline table)
+- Added `--vuln` and `--no-api` CLI flags
+- CVEs displayed per port in terminal and HTML report with severity color-coding
+- Added mDNS/Bonjour device identification module
+ 
 **v1.1**
 - Added UDP scanning
 - Added MAC vendor lookup (offline, via manuf + curated OUI table)
 - Added randomized MAC detection
 - Fixed ARP scan on macOS (VPN-aware interface detection)
-- Improved HTML report (TCP + UDP tables, vendor/MAC info)
+- Improved HTML report (dark theme, TCP + UDP tables, vendor/MAC info)
 - Fixed service detection signature (ip, port)
 - Fixed SYN scan function naming consistency
 - Added colorized CLI output
