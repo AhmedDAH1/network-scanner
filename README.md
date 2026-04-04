@@ -32,8 +32,6 @@ This project mimics core functionality of professional tools like Nmap while bei
 | Live Scan Streaming | ✅ |
 | Scan History | ✅ |
 | Dark / Light Theme | ✅ |
-| CSV Export | ❌ Planned |
-
 ---
 
 ## 📸 Example Output
