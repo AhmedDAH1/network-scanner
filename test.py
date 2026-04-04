@@ -12,6 +12,8 @@ from scanner.udp_scan import udp_scan
 from scanner.service_detection import detect_service
 from scanner.os_fingerprint import os_fingerprint
 from scanner.device_detection import detect_device
+from scanner.mdns_probe import mdns_probe_hosts
+from scanner.vuln_scan import scan_vulnerabilities
 
 init(autoreset=True)
 
@@ -27,51 +29,20 @@ def save_json(all_results, path="scan_results.json"):
 
 
 def save_html(all_results, path="scan_report.html"):
-    rows = ""
-    for host in all_results:
-        rows += f"<h2>{host['host']}</h2>"
-        rows += f"<p><b>MAC:</b> {host.get('mac', 'Unknown')} &nbsp;|&nbsp; <b>Vendor:</b> {host.get('vendor', 'Unknown')}</p>"
-        rows += f"<p><b>OS:</b> {host['os']} &nbsp;|&nbsp; <b>Device:</b> {host['device']}</p>"
+    import json as _json
 
-        # TCP ports table
-        if host["tcp_ports"]:
-            rows += "<h3>TCP Ports</h3>"
-            rows += "<table><tr><th>Port</th><th>Service</th><th>Banner</th></tr>"
-            for p in host["tcp_ports"]:
-                banner = p["banner"] or ""
-                rows += f"<tr><td>{p['port']}</td><td>{p['service']}</td><td>{banner}</td></tr>"
-            rows += "</table>"
-        else:
-            rows += "<p>No open TCP ports found.</p>"
+    # Load the HTML template
+    template_path = os.path.join(os.path.dirname(__file__), "report_template.html")
+    try:
+        with open(template_path, "r") as f:
+            template = f.read()
+    except FileNotFoundError:
+        print(f"{Fore.RED}[-] report_template.html not found — skipping HTML report.")
+        return
 
-        # UDP ports table
-        if host.get("udp_ports"):
-            rows += "<h3>UDP Ports (open|filtered)</h3>"
-            rows += "<table><tr><th>Port</th><th>Service</th></tr>"
-            for p in host["udp_ports"]:
-                rows += f"<tr><td>{p['port']}</td><td>{p['service']}</td></tr>"
-            rows += "</table>"
-
-    html = f"""<!DOCTYPE html>
-<html>
-<head>
-    <title>Network Scan Report</title>
-    <style>
-        body {{ font-family: Arial, sans-serif; margin: 40px; background: #f9f9f9; }}
-        h1 {{ color: #333; }}
-        h2 {{ color: #0066cc; border-bottom: 1px solid #ccc; padding-bottom: 4px; }}
-        h3 {{ color: #444; margin-top: 16px; }}
-        table {{ border-collapse: collapse; width: 70%; margin-bottom: 20px; }}
-        th, td {{ border: 1px solid #ccc; padding: 8px 12px; text-align: left; }}
-        th {{ background-color: #e8e8e8; }}
-        tr:nth-child(even) {{ background-color: #f2f2f2; }}
-    </style>
-</head>
-<body>
-    <h1>Network Scan Results</h1>
-    {rows}
-</body>
-</html>"""
+    # Inject scan data into the template
+    data_json = _json.dumps(all_results, indent=2)
+    html = template.replace("__SCAN_DATA__", data_json)
 
     with open(path, "w") as f:
         f.write(html)
@@ -100,6 +71,8 @@ def main():
     parser.add_argument("-t", "--target",  help="Scan single host")
     parser.add_argument("-p", "--ports",   default="1-1000", help="Port range (default: 1-1000)")
     parser.add_argument("--udp",           action="store_true", help="Enable UDP scan")
+    parser.add_argument("--vuln",          action="store_true", help="Enable CVE vulnerability scan")
+    parser.add_argument("--no-api",        action="store_true", help="Use offline CVE table only (no NVD API)")
 
     args = parser.parse_args()
 
@@ -131,6 +104,10 @@ def main():
 
     all_results = []
 
+    # ── mDNS probe (runs once before scanning) ─────────────────────
+    target_ips = [h["ip"] for h in targets]
+    mdns_data  = mdns_probe_hosts(target_ips, timeout=8)
+
     # ── Scan each host ─────────────────────
     for host in targets:
         target = host["ip"]
@@ -140,14 +117,26 @@ def main():
         print(f"{Fore.CYAN}Scanning host: {target}" + (f"  [{mac}]" if mac else ""))
         print(f"{Fore.CYAN}{'─'*45}")
 
-        os_name     = os_fingerprint(target)
-        dev_info    = detect_device(target, mac)
-        device      = dev_info["device"]
-        vendor      = dev_info["vendor"]
+        os_name  = os_fingerprint(target)
+        dev_info = detect_device(target, mac)
+        vendor   = dev_info["vendor"]
 
-        print(f"  OS:     {os_name}")
-        print(f"  Device: {device}")
-        print(f"  Vendor: {vendor}")
+        # Merge mDNS results — override device if mDNS found something better
+        mdns_info = mdns_data.get(target, {})
+        mdns_device   = mdns_info.get("device")
+        mdns_hostname = mdns_info.get("hostname")
+        mdns_services = mdns_info.get("services", [])
+
+        device = mdns_device or dev_info["device"]
+        device_display = device.replace(" (Randomized MAC (Privacy Mode))", "").strip()
+
+        print(f"  OS:       {os_name}")
+        print(f"  Device:   {device_display}")
+        print(f"  Vendor:   {vendor}")
+        if mdns_hostname:
+            print(f"  Hostname: {Fore.GREEN}{mdns_hostname}.local")
+        if mdns_services:
+            print(f"  Services: {', '.join(mdns_services)}")
 
         # TCP SYN scan
         print(f"\n{Fore.YELLOW}[+] TCP SYN Scan ({args.ports})...")
@@ -187,9 +176,16 @@ def main():
             "vendor":    vendor,
             "os":        os_name,
             "device":    device,
+            "hostname":  mdns_hostname or "",
+            "services":  mdns_services,
             "tcp_ports": tcp_results,
             "udp_ports": udp_results,
         })
+
+    # ── Vulnerability scan ────────────────────
+    if args.vuln:
+        use_api = not args.no_api
+        all_results = scan_vulnerabilities(all_results, use_api=use_api)
 
     # ── Save reports ───────────────────────
     save_json(all_results)

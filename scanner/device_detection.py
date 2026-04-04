@@ -145,11 +145,16 @@ def classify_vendor(vendor):
     if not vendor:
         return None
 
+    # Randomized MACs can't be classified by vendor
+    if "randomized" in vendor.lower():
+        return "Unknown"
+
     for keyword, device_type in VENDOR_KEYWORDS.items():
         if keyword.lower() in vendor.lower():
             return device_type
 
-    return f"Unknown ({vendor})"
+    # Vendor known but no device type match — return None, keep "Unknown" device
+    return None
 
 
 def detect_device(ip, mac=None):
