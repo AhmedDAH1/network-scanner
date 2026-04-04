@@ -1,5 +1,7 @@
 [
-    {
+  {
+    "results": [
+      {
         "host": "192.168.1.2",
         "mac": "88:6e:dd:f2:76:19",
         "vendor": "TP-Link",
@@ -8,20 +10,20 @@
         "hostname": "",
         "services": [],
         "tcp_ports": [
-            {
-                "port": 53,
-                "service": "DNS",
-                "banner": null
-            },
-            {
-                "port": 80,
-                "service": "HTTP",
-                "banner": ""
-            }
+          {
+            "port": 53,
+            "service": "DNS",
+            "banner": null
+          },
+          {
+            "port": 80,
+            "service": "HTTP",
+            "banner": ""
+          }
         ],
         "udp_ports": []
-    },
-    {
+      },
+      {
         "host": "192.168.1.1",
         "mac": "68:9a:21:2e:6a:a0",
         "vendor": "Netgear",
@@ -30,20 +32,20 @@
         "hostname": "",
         "services": [],
         "tcp_ports": [
-            {
-                "port": 53,
-                "service": "DNS",
-                "banner": null
-            },
-            {
-                "port": 80,
-                "service": "HTTP",
-                "banner": null
-            }
+          {
+            "port": 53,
+            "service": "DNS",
+            "banner": null
+          },
+          {
+            "port": 80,
+            "service": "HTTP",
+            "banner": null
+          }
         ],
         "udp_ports": []
-    },
-    {
+      },
+      {
         "host": "192.168.1.4",
         "mac": "5a:5d:29:bb:13:34",
         "vendor": "Randomized MAC (Privacy Mode)",
@@ -53,5 +55,15 @@
         "services": [],
         "tcp_ports": [],
         "udp_ports": []
-    }
+      }
+    ],
+    "params": {
+      "network": "192.168.1.0/24",
+      "target": "",
+      "ports": "1-1000",
+      "udp": false,
+      "vuln": false
+    },
+    "ts": "2026-04-04T11:33:52.761Z"
+  }
 ]
