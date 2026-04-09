@@ -1,7 +1,7 @@
 """
 web_app.py — Flask web interface for network-scanner.
 Run with: sudo python3 web_app.py
-Then open: http://localhost:5000
+Then open: http://localhost:8000
 """
 
 import json
@@ -564,6 +564,7 @@ body {
     .form-grid { grid-template-columns: 1fr; }
 }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 </head>
 <body>
 <div class="app">
@@ -586,6 +587,9 @@ body {
         <button class="nav-btn" onclick="showPage('history')" id="nav-history">
             <span class="icon">◷</span> Scan History
         </button>
+        <button class="nav-btn" onclick="showPage('topology')" id="nav-topology">
+            <span class="icon">◉</span> Topology Map
+        </button>
     </div>
 
     <div class="sidebar-footer">
@@ -593,6 +597,10 @@ body {
             <div class="toggle-track"><div class="toggle-thumb"></div></div>
             <span id="theme-label">DARK MODE</span>
         </button>
+        <div style="margin-top:14px; font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--text-dim); line-height:1.8;">
+            <div style="color:var(--accent);">// developer</div>
+            <div style="color:var(--text-mid); font-weight:600; font-size:12px;">Ahmed Dahdouh</div>
+        </div>
     </div>
 </aside>
 
@@ -671,10 +679,295 @@ body {
         </div>
     </div>
 
+    <!-- Topology page -->
+    <div class="page" id="page-topology">
+        <div class="page-header">
+            <div class="page-title">Network <span>Topology</span></div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                <div style="display:flex;gap:12px;font-family:'Share Tech Mono',monospace;font-size:11px;">
+                    <span><span style="color:#ff4466">●</span> Critical CVE</span>
+                    <span><span style="color:#ffcc00">●</span> Open Ports</span>
+                    <span><span style="color:#00ff88">●</span> Clean</span>
+                    <span><span style="color:#4a6a8a">●</span> Unknown</span>
+                </div>
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 300px;gap:16px;height:calc(100vh - 180px);">
+            <!-- Map canvas -->
+            <div style="background:var(--bg2);border:1px solid var(--border);position:relative;overflow:hidden;" id="topo-wrap">
+                <svg id="topo-svg" style="width:100%;height:100%;"></svg>
+                <div id="topo-empty" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--text-dim);flex-direction:column;gap:12px;">
+                    <div style="font-size:36px;">◉</div>
+                    Run a scan to generate the topology map.
+                </div>
+            </div>
+            <!-- Detail panel -->
+            <div style="background:var(--bg2);border:1px solid var(--border);padding:20px;overflow-y:auto;" id="topo-panel">
+                <div style="font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;margin-bottom:16px;">Device Details</div>
+                <div id="topo-detail" style="font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--text-dim);">
+                    Click a node to see device details.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="margin-top:48px; padding-top:20px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+        <span style="font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--text-dim);">
+            Built by <strong style="color:var(--accent);">Ahmed Dahdouh</strong>
+        </span>
+        <span style="font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--text-dim);">
+            Network Scanner <strong style="color:var(--accent);">v1.3</strong>
+        </span>
+    </div>
+
 </main>
 </div>
 
 <script>
+// ── Topology Map ─────────────────────────────────────────────────
+let topoData = null;
+
+function buildTopology(results) {
+    if (!results || !results.length) return;
+    topoData = results;
+    document.getElementById('topo-empty').style.display = 'none';
+    drawTopology(results);
+}
+
+function nodeColor(host) {
+    const hasCritical = host.tcp_ports?.some(p => p.cves?.some(c => c.severity === 'CRITICAL' || c.severity === 'HIGH'));
+    const hasPorts    = (host.tcp_ports?.length || 0) + (host.udp_ports?.length || 0) > 0;
+    if (hasCritical) return '#ff4466';
+    if (hasPorts)    return '#ffcc00';
+    if (host.device && host.device !== 'Unknown') return '#00ff88';
+    return '#4a6a8a';
+}
+
+function nodeIcon(host) {
+    const d = (host.device || '').toLowerCase();
+    if (d.includes('router') || d.includes('ap')) return '⊕';
+    if (d.includes('iphone') || d.includes('ipad')) return '◻';
+    if (d.includes('mac') || d.includes('laptop') || d.includes('pc')) return '▣';
+    if (d.includes('phone') || d.includes('android')) return '◻';
+    if (d.includes('printer')) return '⊞';
+    if (d.includes('tv')) return '▬';
+    if (d.includes('nas')) return '▦';
+    return '◈';
+}
+
+function drawTopology(results) {
+    const svg = document.getElementById('topo-svg');
+    const wrap = document.getElementById('topo-wrap');
+    svg.innerHTML = '';
+
+    const W = wrap.clientWidth  || 700;
+    const H = wrap.clientHeight || 500;
+
+    // Find gateway (lowest IP or router)
+    const sorted = [...results].sort((a, b) => {
+        const aIsRouter = a.device?.toLowerCase().includes('router');
+        const bIsRouter = b.device?.toLowerCase().includes('router');
+        if (aIsRouter && !bIsRouter) return -1;
+        if (!aIsRouter && bIsRouter) return 1;
+        return a.host.localeCompare(b.host);
+    });
+
+    const gateway = sorted[0];
+    const clients = sorted.slice(1);
+
+    // Build nodes
+    const nodes = results.map((h, i) => ({
+        id: h.host,
+        host: h,
+        x: 0, y: 0,
+        r: 28 + Math.min((h.tcp_ports?.length || 0) * 3, 18),
+        color: nodeColor(h),
+        icon: nodeIcon(h),
+        isGateway: h.host === gateway.host,
+    }));
+
+    // Build links — all clients connect to gateway
+    const links = clients.map(c => ({
+        source: gateway.host,
+        target: c.host,
+    }));
+
+    // Position nodes in a circle around gateway
+    const cx = W / 2, cy = H / 2;
+    const gNode = nodes.find(n => n.isGateway);
+    if (gNode) { gNode.x = cx; gNode.y = cy; }
+
+    const cNodes = nodes.filter(n => !n.isGateway);
+    const radius = Math.min(W, H) * 0.32;
+    cNodes.forEach((n, i) => {
+        const angle = (2 * Math.PI * i) / cNodes.length - Math.PI / 2;
+        n.x = cx + radius * Math.cos(angle);
+        n.y = cy + radius * Math.sin(angle);
+    });
+
+    // Draw with D3
+    const d3svg = d3.select('#topo-svg')
+        .attr('viewBox', `0 0 ${W} ${H}`)
+        .style('background', 'transparent');
+
+    // Defs — glow filter
+    const defs = d3svg.append('defs');
+    const filter = defs.append('filter').attr('id', 'glow');
+    filter.append('feGaussianBlur').attr('stdDeviation', '3').attr('result', 'coloredBlur');
+    const feMerge = filter.append('feMerge');
+    feMerge.append('feMergeNode').attr('in', 'coloredBlur');
+    feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
+
+    // Links
+    const linkGroup = d3svg.append('g');
+    const nodeMap = {};
+    nodes.forEach(n => nodeMap[n.id] = n);
+
+    links.forEach(l => {
+        const s = nodeMap[l.source], t = nodeMap[l.target];
+        if (!s || !t) return;
+        linkGroup.append('line')
+            .attr('x1', s.x).attr('y1', s.y)
+            .attr('x2', t.x).attr('y2', t.y)
+            .attr('stroke', 'rgba(0,212,255,0.15)')
+            .attr('stroke-width', 1.5)
+            .attr('stroke-dasharray', '4,4');
+    });
+
+    // Nodes
+    const nodeGroup = d3svg.append('g');
+
+    nodes.forEach(n => {
+        const g = nodeGroup.append('g')
+            .attr('transform', `translate(${n.x},${n.y})`)
+            .style('cursor', 'pointer')
+            .on('click', () => showNodeDetail(n.host))
+            .call(d3.drag()
+                .on('drag', function(event) {
+                    n.x = event.x; n.y = event.y;
+                    d3.select(this).attr('transform', `translate(${n.x},${n.y})`);
+                    // Update links
+                    linkGroup.selectAll('line').each(function() {
+                        const line = d3.select(this);
+                        const x1 = parseFloat(line.attr('x1'));
+                        const y1 = parseFloat(line.attr('y1'));
+                        // redraw topology on drag
+                    });
+                    drawTopology(topoData);
+                })
+            );
+
+        // Outer ring
+        g.append('circle')
+            .attr('r', n.r + 6)
+            .attr('fill', 'none')
+            .attr('stroke', n.color)
+            .attr('stroke-width', 1)
+            .attr('opacity', 0.3);
+
+        // Main circle
+        g.append('circle')
+            .attr('r', n.r)
+            .attr('fill', `${n.color}18`)
+            .attr('stroke', n.color)
+            .attr('stroke-width', n.isGateway ? 2.5 : 1.5)
+            .attr('filter', 'url(#glow)');
+
+        // Icon
+        g.append('text')
+            .attr('text-anchor', 'middle')
+            .attr('dominant-baseline', 'central')
+            .attr('dy', '-6')
+            .attr('font-size', n.isGateway ? '18' : '14')
+            .attr('fill', n.color)
+            .text(n.icon);
+
+        // IP label inside
+        g.append('text')
+            .attr('text-anchor', 'middle')
+            .attr('dominant-baseline', 'central')
+            .attr('dy', '10')
+            .attr('font-family', "'Share Tech Mono', monospace")
+            .attr('font-size', '9')
+            .attr('fill', n.color)
+            .text(n.host.split('.').slice(-2).join('.'));
+
+        // Device label below
+        g.append('text')
+            .attr('text-anchor', 'middle')
+            .attr('y', n.r + 16)
+            .attr('font-family', "'Share Tech Mono', monospace")
+            .attr('font-size', '10')
+            .attr('fill', 'var(--text-mid)')
+            .text(n.host.vendor || (n.isGateway ? 'Gateway' : ''));
+    });
+}
+
+function showNodeDetail(host) {
+    const color = nodeColor(host);
+    const tcpCount = host.tcp_ports?.length || 0;
+    const udpCount = host.udp_ports?.length || 0;
+    const cveCount = host.tcp_ports?.reduce((n, p) => n + (p.cves?.length || 0), 0) || 0;
+
+    let portsHtml = '';
+    (host.tcp_ports || []).forEach(p => {
+        const worst = p.cves?.[0];
+        portsHtml += `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);">
+            <span style="color:var(--accent)">${p.port}</span>
+            <span style="color:#00ff88">TCP</span>
+            <span>${p.service}</span>
+            ${worst ? `<span class="sev-${worst.severity}" style="font-size:10px;">${worst.severity}</span>` : '<span></span>'}
+        </div>`;
+    });
+    (host.udp_ports || []).forEach(p => {
+        portsHtml += `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);">
+            <span style="color:var(--accent)">${p.port}</span>
+            <span style="color:#ffcc00">UDP</span>
+            <span>${p.service}</span>
+            <span></span>
+        </div>`;
+    });
+
+    let cvesHtml = '';
+    (host.tcp_ports || []).forEach(p => {
+        (p.cves || []).forEach(c => {
+            cvesHtml += `<div style="padding:5px 0;border-bottom:1px solid var(--border);">
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <span style="color:var(--accent);font-size:11px;">${c.id}</span>
+                    <span class="sev-${c.severity}" style="font-size:10px;">${c.severity}</span>
+                </div>
+                <div style="color:var(--text-dim);font-size:10px;margin-top:2px;">${c.desc}</div>
+            </div>`;
+        });
+    });
+
+    document.getElementById('topo-detail').innerHTML = `
+        <div style="border-left:3px solid ${color};padding-left:12px;margin-bottom:16px;">
+            <div style="font-size:16px;color:var(--text);font-weight:700;">${host.host}</div>
+            <div style="color:var(--text-dim);margin-top:4px;">${host.mac || 'MAC unknown'}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
+            <div style="background:var(--bg3);padding:10px;text-align:center;">
+                <div style="font-size:18px;color:var(--accent);font-weight:700;">${tcpCount + udpCount}</div>
+                <div style="font-size:9px;color:var(--text-dim);letter-spacing:1px;">PORTS</div>
+            </div>
+            <div style="background:var(--bg3);padding:10px;text-align:center;">
+                <div style="font-size:18px;color:${cveCount ? '#ff4466' : 'var(--green)'};font-weight:700;">${cveCount}</div>
+                <div style="font-size:9px;color:var(--text-dim);letter-spacing:1px;">CVES</div>
+            </div>
+        </div>
+        <div style="margin-bottom:4px;color:var(--text-dim);font-size:9px;letter-spacing:2px;text-transform:uppercase;">Info</div>
+        <div style="background:var(--bg3);padding:10px;margin-bottom:16px;line-height:2;">
+            <div><span style="color:var(--text-dim)">OS</span> &nbsp; ${host.os || '—'}</div>
+            <div><span style="color:var(--text-dim)">Device</span> &nbsp; ${host.device || '—'}</div>
+            <div><span style="color:var(--text-dim)">Vendor</span> &nbsp; ${host.vendor || '—'}</div>
+        </div>
+        ${portsHtml ? `<div style="margin-bottom:4px;color:var(--text-dim);font-size:9px;letter-spacing:2px;text-transform:uppercase;">Ports</div><div style="margin-bottom:16px;">${portsHtml}</div>` : ''}
+        ${cvesHtml ? `<div style="margin-bottom:4px;color:var(--text-dim);font-size:9px;letter-spacing:2px;text-transform:uppercase;">CVEs</div><div>${cvesHtml}</div>` : ''}
+    `;
+}
+
 // ── Theme ─────────────────────────────────────────────────────────
 function toggleTheme() {
     const html = document.documentElement;
@@ -696,6 +989,9 @@ function showPage(name) {
     document.getElementById('page-' + name).classList.add('active');
     document.getElementById('nav-' + name).classList.add('active');
     if (name === 'history') loadHistory();
+    if (name === 'topology' && currentResults) {
+        setTimeout(() => buildTopology(currentResults), 50);
+    }
 }
 
 // ── Terminal ──────────────────────────────────────────────────────
@@ -763,6 +1059,7 @@ function startScan() {
             if (data.results) {
                 currentResults = data.results;
                 renderResults(data.results);
+                buildTopology(data.results);
                 showPage('results');
                 saveHistory(data.results, { network, target, ports, udp, vuln });
             }
@@ -909,6 +1206,7 @@ function loadHistoryEntry(entryStr) {
     const entry = JSON.parse(entryStr);
     currentResults = entry.results;
     renderResults(entry.results);
+    buildTopology(entry.results);
     showPage('results');
 }
 </script>
