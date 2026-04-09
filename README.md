@@ -9,6 +9,8 @@ A **multi-threaded network scanner** built in Python with SYN scanning, UDP scan
 
 This project mimics core functionality of professional tools like Nmap while being implemented from scratch for learning purposes.
 
+![Demo](assets/demo.png)
+
 ---
 
 ## 🚀 Features
