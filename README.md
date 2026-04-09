@@ -299,8 +299,7 @@ network-scanner/
 
 ## 👨‍💻 Author
 
-Ahmed Dahdouh
-
+**Ahmed Dahdouh** — [GitHub](https://github.com/AhmedDAH1) · [LinkedIn](https://www.linkedin.com/in/ahmed-dahdouh)
 ---
 
 ## ⚠️ Disclaimer
