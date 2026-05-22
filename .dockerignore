@@ -1,0 +1,40 @@
+# Git history — not needed inside the image
+.git/
+.gitignore
+.gitattributes
+
+# Python bytecode and caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Local scan data (contains private network info — not for portfolio image)
+scan_history.json
+scan_results.json
+scan_report.html
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Local secrets
+.env
+
+# Docker files (don't ship the Dockerfile into the image itself)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Documentation that doesn't need to be inside the running container
+README.md
+LICENSE
+*.md

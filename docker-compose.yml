@@ -1,0 +1,19 @@
+services:
+  scanner:
+    build: .
+    image: network-scanner:latest
+    container_name: network-scanner
+    ports:
+      - "8000:8000"
+
+    # Scapy needs raw socket access. Granting only what's needed
+    # (NET_RAW + NET_ADMIN), never --privileged.
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+
+    # Optional: persist scan history across container restarts
+    volumes:
+      - ./data:/app/data
+
+    restart: unless-stopped
