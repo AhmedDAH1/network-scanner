@@ -130,37 +130,37 @@ The dashboard lets you:
 
 ### Scan an entire network
 ```bash
-sudo python3 test.py -n 192.168.1.0/24
+sudo python3 scanner_cli.py -n 192.168.1.0/24
 ```
 
 ### Scan a single host
 ```bash
-sudo python3 test.py -t 192.168.1.1
+sudo python3 scanner_cli.py -t 192.168.1.1
 ```
 
 ### Scan a custom port range
 ```bash
-sudo python3 test.py -t 192.168.1.1 -p 1-65535
+sudo python3 scanner_cli.py -t 192.168.1.1 -p 1-65535
 ```
 
 ### Enable UDP scan
 ```bash
-sudo python3 test.py -t 192.168.1.1 --udp
+sudo python3 scanner_cli.py -t 192.168.1.1 --udp
 ```
 
 ### Enable vulnerability scan (NVD API)
 ```bash
-sudo python3 test.py -n 192.168.1.0/24 --vuln
+sudo python3 scanner_cli.py -n 192.168.1.0/24 --vuln
 ```
 
 ### Vulnerability scan offline only
 ```bash
-sudo python3 test.py -n 192.168.1.0/24 --vuln --no-api
+sudo python3 scanner_cli.py -n 192.168.1.0/24 --vuln --no-api
 ```
 
 ### Combine all options
 ```bash
-sudo python3 test.py -n 192.168.1.0/24 -p 1-500 --udp --vuln
+sudo python3 scanner_cli.py -n 192.168.1.0/24 -p 1-500 --udp --vuln
 ```
 
 ---
@@ -184,7 +184,7 @@ sudo python3 test.py -n 192.168.1.0/24 -p 1-500 --udp --vuln
 ```
 network-scanner/
 │
-├── test.py                  # CLI entry point
+├── scanner_cli.py                  # CLI entry point
 ├── web_app.py               # Flask web dashboard
 ├── report_template.html     # HTML report template
 ├── requirements.txt         # Python dependencies
