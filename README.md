@@ -1,16 +1,24 @@
 # 🔎 Network Scanner
 
-![Python](https://img.shields.io/badge/python-3.8+-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
-![Status](https://img.shields.io/badge/status-active-success)
-![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macOS-lightgrey)
+> **🚀 [Live Demo →](https://network-scanner-8ihy.onrender.com)** &nbsp;·&nbsp; Try the dashboard with realistic sample scan data.
+> *Live scanning is disabled in the deployed version (raw sockets aren't available on free-tier hosts). Clone and run locally with Docker to perform real scans — instructions below.*
+
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Online-success?style=flat-square)](https://network-scanner-8ihy.onrender.com)
+![Python](https://img.shields.io/badge/Python-3.8+-blue?style=flat-square&logo=python)
+![Docker](https://img.shields.io/badge/Docker-ready-blue?style=flat-square&logo=docker)
+![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
+![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macOS-lightgrey?style=flat-square)
 ![Lint](https://github.com/AhmedDAH1/network-scanner/actions/workflows/tests.yml/badge.svg)
 
-A **multi-threaded network scanner** built in Python with SYN scanning, UDP scanning, OS detection, MAC vendor lookup, service detection, vulnerability scanning, and a full web dashboard with live scan streaming.
-
-This project mimics core functionality of professional tools like Nmap while being implemented from scratch for learning purposes.
+A **multi-threaded network scanner** built in Python with SYN scanning, UDP scanning, OS detection, MAC vendor lookup, service detection, vulnerability scanning, and a full web dashboard with live scan streaming. Implemented from scratch to internalize how tools like Nmap work at the protocol level.
 
 ![Demo](assets/demo.png)
+
+---
+
+## Why I Built This
+
+I'm a Software Engineering student specializing in cybersecurity, working toward a SOC analyst / detection engineer role. Reading about how port scanners craft raw packets and how ARP discovery actually works on the wire, I realized I understood the concepts in theory but not the mechanics. So I built one. The goal was to internalize raw socket programming, the ARP/ICMP fallback patterns, TTL-based OS fingerprinting, and the trade-offs between SYN scanning and full TCP connects — by writing the code, not just reading about it.
 
 ---
 
@@ -19,22 +27,116 @@ This project mimics core functionality of professional tools like Nmap while bei
 | Feature | Status |
 |---|---|
 | Host Discovery (ARP + ICMP fallback) | ✅ |
-| Auto Network Interface Detection | ✅ |
-| TCP SYN Scan | ✅ |
+| Auto Network Interface Detection (VPN-aware) | ✅ |
+| TCP SYN Scan (multi-threaded) | ✅ |
 | UDP Scan | ✅ |
 | OS Fingerprinting (TTL-based) | ✅ |
 | Service Detection + Banner Grabbing | ✅ |
 | MAC Vendor Lookup (offline) | ✅ |
 | Randomized MAC Detection | ✅ |
-| Vulnerability Scan (CVE lookup) | ✅ |
+| Vulnerability Scan (NVD API + offline CVE table) | ✅ |
 | mDNS Device Identification | ✅ |
-| Multi-threading | ✅ |
-| JSON Reports | ✅ |
-| HTML Reports | ✅ |
-| Web Dashboard (Flask) | ✅ |
-| Live Scan Streaming | ✅ |
+| JSON + HTML Reports | ✅ |
+| Web Dashboard (Flask + SSE streaming) | ✅ |
 | Scan History | ✅ |
 | Dark / Light Theme | ✅ |
+| Docker + docker-compose | ✅ |
+| Demo Mode for Portfolio Deployment | ✅ |
+
+---
+
+## Installation
+
+### Option 1 — Docker (recommended)
+
+```bash
+git clone https://github.com/AhmedDAH1/network-scanner.git
+cd network-scanner
+
+# Launch the web dashboard with full scanning capability
+docker compose up
+```
+
+Open http://localhost:8000 in your browser. The container is granted `CAP_NET_RAW` and `CAP_NET_ADMIN` capabilities (least-privilege; never `--privileged`) so Scapy can craft raw packets.
+
+### Option 2 — Local Python
+
+```bash
+git clone https://github.com/AhmedDAH1/network-scanner.git
+cd network-scanner
+pip install -r requirements.txt
+
+# Run the web dashboard
+sudo python3 web_app.py
+
+# Or run from the CLI
+sudo python3 scanner_cli.py -n 192.168.1.0/24
+```
+
+> **Note:** SYN scanning and ARP host discovery require root privileges for raw socket access. Always run with `sudo`.
+
+### Running the deployed demo locally
+
+If you want to see exactly what the [live demo](https://network-scanner-8ihy.onrender.com) looks like:
+
+```bash
+DEMO_MODE=1 docker compose up
+```
+
+---
+
+## 🌐 Web Dashboard
+
+Start the web interface (see Installation above), then open **http://localhost:8000**.
+
+The dashboard lets you:
+- Run scans directly from the browser with a form UI
+- Watch live terminal output stream in real time via Server-Sent Events
+- View results with expandable host cards, port tables, and CVE listings
+- Browse scan history — every scan is saved and reloadable
+- Toggle between dark and light themes
+
+---
+
+## 🧠 CLI Usage
+
+```bash
+# Scan an entire network
+sudo python3 scanner_cli.py -n 192.168.1.0/24
+
+# Scan a single host
+sudo python3 scanner_cli.py -t 192.168.1.1
+
+# Scan a custom port range
+sudo python3 scanner_cli.py -t 192.168.1.1 -p 1-65535
+
+# Enable UDP scan
+sudo python3 scanner_cli.py -t 192.168.1.1 --udp
+
+# Enable vulnerability scan (NVD API)
+sudo python3 scanner_cli.py -n 192.168.1.0/24 --vuln
+
+# Vulnerability scan offline only
+sudo python3 scanner_cli.py -n 192.168.1.0/24 --vuln --no-api
+
+# Combine all options
+sudo python3 scanner_cli.py -n 192.168.1.0/24 -p 1-500 --udp --vuln
+```
+
+---
+
+## ⚙️ Command Line Options
+
+| Option | Description |
+|---|---|
+| `-n` | Scan a network range (e.g. `192.168.1.0/24`) |
+| `-t` | Scan a single host |
+| `-p` | Port range (default: `1-1000`) |
+| `--udp` | Enable UDP scan on common ports |
+| `--vuln` | Enable CVE vulnerability scan (uses NVD API) |
+| `--no-api` | Use offline CVE table only (no internet needed) |
+| `-h` | Show help menu |
+
 ---
 
 ## 📸 Example Output
@@ -77,105 +179,24 @@ Scanning host: 192.168.1.1  [68:9a:21:2e:6a:a0]
 
 ---
 
-## 📦 Requirements
+## Skills Demonstrated
 
-- Python 3.8+
-- Scapy
-- Tabulate
-- Colorama
-- Manuf
-- Flask
+This project maps directly to core network security and detection engineering competencies:
 
----
-
-## ⚙️ Installation
-
-Clone the repository:
-
-```bash
-git clone https://github.com/AhmedDAH1/network-scanner.git
-cd network-scanner
-```
-
-Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-> **Note:** SYN scanning and ARP host discovery require root privileges. Always run with `sudo`.
-
----
-
-## 🌐 Web Dashboard
-
-Start the web interface:
-
-```bash
-sudo python3 web_app.py
-```
-
-Then open **http://localhost:5000** in your browser.
-
-The dashboard lets you:
-- Run scans directly from the browser with a form UI
-- Watch live terminal output stream in real time as the scan runs
-- View results with expandable host cards, port tables, and CVE listings
-- Browse scan history — every scan is saved and reloadable
-- Toggle between dark and light themes
-
----
-
-## 🧠 CLI Usage
-
-### Scan an entire network
-```bash
-sudo python3 scanner_cli.py -n 192.168.1.0/24
-```
-
-### Scan a single host
-```bash
-sudo python3 scanner_cli.py -t 192.168.1.1
-```
-
-### Scan a custom port range
-```bash
-sudo python3 scanner_cli.py -t 192.168.1.1 -p 1-65535
-```
-
-### Enable UDP scan
-```bash
-sudo python3 scanner_cli.py -t 192.168.1.1 --udp
-```
-
-### Enable vulnerability scan (NVD API)
-```bash
-sudo python3 scanner_cli.py -n 192.168.1.0/24 --vuln
-```
-
-### Vulnerability scan offline only
-```bash
-sudo python3 scanner_cli.py -n 192.168.1.0/24 --vuln --no-api
-```
-
-### Combine all options
-```bash
-sudo python3 scanner_cli.py -n 192.168.1.0/24 -p 1-500 --udp --vuln
-```
-
----
-
-## ⚙️ Command Line Options
-
-| Option | Description |
+| Skill | Where in this project |
 |---|---|
-| `-n` | Scan a network range (e.g. `192.168.1.0/24`) |
-| `-t` | Scan a single host |
-| `-p` | Port range (default: `1-1000`) |
-| `--udp` | Enable UDP scan on common ports |
-| `--vuln` | Enable CVE vulnerability scan (uses NVD API) |
-| `--no-api` | Use offline CVE table only (no internet needed) |
-| `-h` | Show help menu |
+| Raw socket programming | `scanner/syn_scan.py` — Scapy SYN packet crafting |
+| Network discovery protocols | `scanner/host_discovery.py` — ARP + ICMP fallback, mDNS probe |
+| Protocol-aware fingerprinting | `scanner/os_fingerprint.py` — TTL-based OS detection |
+| Service identification | `scanner/service_detection.py` — banner grabbing + port mapping |
+| External API integration with fallback | `scanner/vuln_scan.py` — NVD API + offline CVE table |
+| MAC OUI lookup | `scanner/device_detection.py` — manuf library + curated table |
+| Multi-threaded scanning | 100-thread concurrent SYN scanner |
+| Real-time data streaming | Flask + Server-Sent Events for live scan output |
+| Containerization with security constraints | Dockerfile with libpcap-dev, compose grants minimum capabilities (NET_RAW + NET_ADMIN) |
+| Least-privilege design | No `--privileged`, no broader capabilities than needed |
+| Cloud deployment with graceful degradation | Live demo runs in DEMO_MODE since raw sockets unavailable on free tiers |
+| Defensive API design | Demo-mode endpoints return 403 to prevent abuse vectors |
 
 ---
 
@@ -184,16 +205,15 @@ sudo python3 scanner_cli.py -n 192.168.1.0/24 -p 1-500 --udp --vuln
 ```
 network-scanner/
 │
-├── scanner_cli.py                  # CLI entry point
+├── scanner_cli.py           # CLI entry point
 ├── web_app.py               # Flask web dashboard
+├── Dockerfile               # Production container with libpcap + tcpdump
+├── docker-compose.yml       # Least-privilege capabilities (NET_RAW + NET_ADMIN)
 ├── report_template.html     # HTML report template
-├── requirements.txt         # Python dependencies
-├── scan_results.json        # Generated JSON report
-├── scan_report.html         # Generated HTML report
-├── scan_history.json        # Web dashboard scan history
+├── requirements.txt         # Pinned Python dependencies
+├── SECURITY.md              # Security policy + ethical use clause
 │
 └── scanner/
-    ├── __init__.py
     ├── host_discovery.py    # ARP + ICMP host discovery, interface detection
     ├── syn_scan.py          # TCP SYN scanning (multi-threaded)
     ├── udp_scan.py          # UDP scanning (multi-threaded)
@@ -260,36 +280,39 @@ network-scanner/
 - Improved OS fingerprinting (TCP stack analysis)
 - Version-aware CVE matching via banner grabbing
 - IPv6 support
+- Replace Flask dev server with gunicorn for production deployments
 
 ---
 
 ## 📌 Changelog
 
-**v1.3**
+**v1.1.0** — Containerization, demo mode, and security hardening
+- Production Dockerfile (Python 3.10-slim with libpcap-dev and tcpdump)
+- docker-compose.yml grants minimum capabilities (NET_RAW + NET_ADMIN), never `--privileged`
+- New `DEMO_MODE` env var for portfolio deployment
+- Fixed broken scan command in web dashboard (`test.py` → `scanner_cli.py`)
+- Added `SECURITY.md` with ethical-use clause and jurisdictional context
+- API hardening: `/scan/stream` and `/scan/stop` return 403 in demo mode
+- Live demo deployed at https://network-scanner-8ihy.onrender.com
+
+**v1.3** — Web dashboard
 - Added Flask web dashboard
 - Live scan output streaming via Server-Sent Events
 - Scan history with reloadable results
 - Dark / light theme toggle
-- Results page with expandable host cards and CVE listings
 
-**v1.2**
+**v1.2** — Vulnerability scanning
 - Added vulnerability scan (CVE lookup via NVD API + offline table)
 - Added `--vuln` and `--no-api` CLI flags
-- CVEs displayed per port in terminal and HTML report with severity color-coding
-- Added mDNS/Bonjour device identification module
+- mDNS/Bonjour device identification
 
-**v1.1**
+**v1.1** — UDP + vendor lookup
 - Added UDP scanning
 - Added MAC vendor lookup (offline, via manuf + curated OUI table)
 - Added randomized MAC detection
 - Fixed ARP scan on macOS (VPN-aware interface detection)
-- Improved HTML report (dark theme, TCP + UDP tables, vendor/MAC info)
-- Fixed service detection signature (ip, port)
-- Fixed SYN scan function naming consistency
-- Added colorized CLI output
 
-**v1.0**
-- Initial release
+**v1.0** — Initial release
 - Host discovery (ARP + ICMP)
 - TCP SYN scanning
 - OS fingerprinting
@@ -300,17 +323,19 @@ network-scanner/
 
 ## 👨‍💻 Author
 
-**Ahmed Dahdouh** — [GitHub](https://github.com/AhmedDAH1) · [LinkedIn](https://www.linkedin.com/in/ahmed-dahdouh)
+**Ahmed Dahdouh** — Software Engineering Student · Cybersecurity Enthusiast
+
+[![GitHub](https://img.shields.io/badge/GitHub-AhmedDAH1-black?style=flat-square&logo=github)](https://github.com/AhmedDAH1)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Ahmed_Dahdouh-0A66C2?style=flat-square&logo=linkedin)](https://www.linkedin.com/in/ahmed-dahdouh)
+
 ---
 
 ## ⚠️ Disclaimer
 
-This tool is intended for **educational purposes only**.
-Only scan networks you own or have explicit permission to test.
-Unauthorized network scanning may be illegal in your jurisdiction.
+This tool is intended for **educational purposes only**. Only scan networks you own or have explicit written permission to test. Unauthorized network scanning may be illegal in your jurisdiction (CFAA in the US, Computer Misuse Act in the UK, Article 303a StGB in Germany, etc.). See [SECURITY.md](SECURITY.md) for the full ethical-use policy.
 
 ---
 
 ## 📜 License
 
-MIT License
+MIT — see [LICENSE](LICENSE)
