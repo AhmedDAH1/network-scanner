@@ -16,6 +16,12 @@ from flask import Flask, Response, jsonify, render_template_string, request, str
 
 app = Flask(__name__)
 
+# Demo mode: when set, disables live scanning and shows pre-loaded sample data.
+# Used for the deployed portfolio dashboard where raw sockets aren't available
+# (e.g., Render, Fly.io free tiers). Local Docker runs leave this unset and
+# get full scanning functionality.
+DEMO_MODE = os.environ.get("DEMO_MODE", "0") == "1"
+
 HISTORY_FILE = "scan_history.json"
 _scan_lock   = threading.Lock()
 _active_scan = {"running": False, "output": [], "id": None}
@@ -335,6 +341,24 @@ body {
 .scan-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .scan-btn.running { background: var(--red); color: #fff; }
 
+/* ── Demo mode banner ── */
+.demo-banner {
+    background: linear-gradient(135deg, rgba(0,212,255,0.1), rgba(0,212,255,0.05));
+    border: 1px solid var(--accent);
+    border-left: 4px solid var(--accent);
+    color: var(--text);
+    padding: 16px 20px;
+    border-radius: 4px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+}
+.demo-banner strong {
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
 /* ── Terminal ── */
 .terminal {
     background: #050810;
@@ -647,7 +671,13 @@ body {
                 </label>
             </div>
 
+            {% if demo_mode %}
+            <div class="demo-banner">
+                🎓 <strong>Demo Mode</strong> — live scanning is disabled in this deployment because raw socket access (CAP_NET_RAW) is not available on the free-tier host. Clone the repo and run with Docker locally to perform real scans. The data on the Results and Topology pages is from a representative sample scan.
+            </div>
+            {% else %}
             <button class="scan-btn" id="scan-btn" onclick="startScan()">▶ Start Scan</button>
+            {% endif %}
         </div>
 
         <div class="terminal" id="terminal"></div>
@@ -1218,11 +1248,17 @@ function loadHistoryEntry(entryStr) {
 
 @app.route("/")
 def index():
-    return render_template_string(HTML)
+    return render_template_string(HTML, demo_mode=DEMO_MODE)
 
 
 @app.route("/scan/stream")
 def scan_stream():
+    if DEMO_MODE:
+        return jsonify({
+            "error": "Live scanning is disabled in demo mode. "
+                     "Clone the repo and run locally with Docker to perform real scans."
+        }), 403
+
     network = request.args.get("network", "").strip()
     target  = request.args.get("target", "").strip()
     ports   = request.args.get("ports", "1-1000").strip()
@@ -1231,7 +1267,7 @@ def scan_stream():
     no_api  = request.args.get("noApi") == "true"
 
     def generate():
-        cmd = [sys.executable, "test.py"]
+        cmd = [sys.executable, "scanner_cli.py"]
         if network: cmd += ["-n", network]
         elif target: cmd += ["-t", target]
         if ports:   cmd += ["-p", ports]
@@ -1287,6 +1323,8 @@ def scan_stream():
 
 @app.route("/scan/stop", methods=["POST"])
 def scan_stop():
+    if DEMO_MODE:
+        return jsonify({"error": "Live scanning is disabled in demo mode"}), 403
     _active_scan["running"] = False
     return jsonify({"ok": True})
 
@@ -1303,9 +1341,83 @@ def save_history_route():
     return jsonify({"ok": True})
 
 
+def seed_demo_history():
+    """In demo mode, pre-populate scan_history.json with a sample scan
+    so visitors see meaningful data without running a live scan.
+
+    Skips seeding if a history file already exists (e.g., mounted from
+    a volume in local Docker runs)."""
+    if not DEMO_MODE:
+        return
+    if os.path.exists(HISTORY_FILE):
+        return
+
+    sample = {
+        "id": str(uuid.uuid4()),
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "params": {
+            "network": "10.0.0.0/24",
+            "ports": "1-1000",
+            "udp": False,
+            "vuln": True,
+            "no_api": False,
+        },
+        "results": [
+            {
+                "ip": "10.0.0.1",
+                "mac": "00:50:56:c0:00:01",
+                "vendor": "VMware",
+                "hostname": "gateway.local",
+                "ports": [22, 80, 443],
+            },
+            {
+                "ip": "10.0.0.42",
+                "mac": "b8:27:eb:9f:12:34",
+                "vendor": "Raspberry Pi",
+                "hostname": "pi-cluster.local",
+                "ports": [22, 8080],
+            },
+            {
+                "ip": "10.0.0.105",
+                "mac": "ac:84:c9:11:22:33",
+                "vendor": "TP-Link",
+                "hostname": "office-ap.local",
+                "ports": [80, 443, 8443],
+            },
+            {
+                "ip": "10.0.0.200",
+                "mac": "00:0c:29:aa:bb:cc",
+                "vendor": "VMware",
+                "hostname": "vm-host-01",
+                "ports": [22, 3389, 5985],
+            },
+        ],
+        "vulns": [
+            {
+                "ip": "10.0.0.42",
+                "port": 8080,
+                "cve": "CVE-2021-44228",
+                "service": "Apache log4j",
+                "severity": "CRITICAL",
+            },
+            {
+                "ip": "10.0.0.1",
+                "port": 22,
+                "cve": "CVE-2023-48795",
+                "service": "OpenSSH",
+                "severity": "HIGH",
+            },
+        ],
+    }
+    save_history(sample)
+
+
 if __name__ == "__main__":
     print("\n" + "─" * 50)
     print("  NetScan Web Dashboard")
+    if DEMO_MODE:
+        print("  🎓 DEMO MODE — live scanning disabled")
     print("  Open → http://localhost:8000")
     print("─" * 50 + "\n")
+    seed_demo_history()
     app.run(host="0.0.0.0", port=8000, debug=False, threaded=True)
