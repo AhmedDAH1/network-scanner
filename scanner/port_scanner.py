@@ -1,6 +1,7 @@
 import socket
 from concurrent.futures import ThreadPoolExecutor
 
+
 def scan_port(ip, port):
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -10,7 +11,7 @@ def scan_port(ip, port):
 
         if result == 0:
             return port
-    except:
+    except Exception:
         pass
 
 def scan_ports(ip, ports):

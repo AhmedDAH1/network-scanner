@@ -1,5 +1,6 @@
-from scapy.all import IP, TCP, sr1
 from concurrent.futures import ThreadPoolExecutor
+
+from scapy.all import IP, TCP, sr1
 
 
 def _syn_scan_port(ip, port):
@@ -11,10 +12,7 @@ def _syn_scan_port(ip, port):
         packet = IP(dst=ip) / TCP(dport=port, flags="S")
         response = sr1(packet, timeout=1, verbose=0)
 
-        if response and response.haslayer(TCP):
-            # SYN-ACK (0x12) means port is open
-            if response[TCP].flags == 0x12:
-                # Send RST to close the half-open connection
+        if response and response.haslayer(TCP) and response[TCP].flags == 0x12:
                 rst = IP(dst=ip) / TCP(dport=port, flags="R")
                 sr1(rst, timeout=1, verbose=0)
                 return port

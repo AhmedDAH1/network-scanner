@@ -3,16 +3,17 @@
 import argparse
 import json
 import os
-from tabulate import tabulate
-from colorama import Fore, Style, init
 
+from colorama import Fore, init
+from tabulate import tabulate
+
+from scanner.device_detection import detect_device
 from scanner.host_discovery import discover_hosts
+from scanner.mdns_probe import mdns_probe_hosts
+from scanner.os_fingerprint import os_fingerprint
+from scanner.service_detection import detect_service
 from scanner.syn_scan import syn_scan
 from scanner.udp_scan import udp_scan
-from scanner.service_detection import detect_service
-from scanner.os_fingerprint import os_fingerprint
-from scanner.device_detection import detect_device
-from scanner.mdns_probe import mdns_probe_hosts
 from scanner.vuln_scan import scan_vulnerabilities
 
 init(autoreset=True)
@@ -34,7 +35,7 @@ def save_html(all_results, path="scan_report.html"):
     # Load the HTML template
     template_path = os.path.join(os.path.dirname(__file__), "report_template.html")
     try:
-        with open(template_path, "r") as f:
+        with open(template_path) as f:
             template = f.read()
     except FileNotFoundError:
         print(f"{Fore.RED}[-] report_template.html not found — skipping HTML report.")

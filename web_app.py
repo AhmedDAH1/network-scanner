@@ -9,10 +9,17 @@ import os
 import subprocess
 import sys
 import threading
-import time
 import uuid
-from datetime import datetime
-from flask import Flask, Response, jsonify, render_template_string, request, stream_with_context
+from datetime import datetime, timezone
+
+from flask import (
+    Flask,
+    Response,
+    jsonify,
+    render_template_string,
+    request,
+    stream_with_context,
+)
 
 app = Flask(__name__)
 
@@ -1268,12 +1275,18 @@ def scan_stream():
 
     def generate():
         cmd = [sys.executable, "scanner_cli.py"]
-        if network: cmd += ["-n", network]
-        elif target: cmd += ["-t", target]
-        if ports:   cmd += ["-p", ports]
-        if udp:     cmd += ["--udp"]
-        if vuln:    cmd += ["--vuln"]
-        if no_api:  cmd += ["--no-api"]
+        if network:
+            cmd += ["-n", network]
+        elif target:
+            cmd += ["-t", target]
+        if ports:
+            cmd += ["-p", ports]
+        if udp:
+            cmd += ["--udp"]
+        if vuln:
+            cmd += ["--vuln"]
+        if no_api:
+            cmd += ["--no-api"]
 
         def send(data):
             return f"data: {json.dumps(data)}\n\n"
@@ -1289,8 +1302,8 @@ def scan_stream():
             _active_scan["running"] = True
             _active_scan["output"]  = []
 
-            for line in proc.stdout:
-                line = line.rstrip()
+            for raw_line in proc.stdout:
+                line = raw_line.rstrip()
                 if not line:
                     continue
                 _active_scan["output"].append(line)
@@ -1354,7 +1367,7 @@ def seed_demo_history():
 
     sample = {
         "id": str(uuid.uuid4()),
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "params": {
             "network": "10.0.0.0/24",
             "ports": "1-1000",

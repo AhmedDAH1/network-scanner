@@ -1,5 +1,7 @@
-from scapy.all import IP, ICMP, sr1
 import socket
+
+from scapy.all import ICMP, IP, sr1
+
 
 def os_fingerprint(target):
 
@@ -33,10 +35,10 @@ def os_fingerprint(target):
             if "android" in hostname.lower():
                 return "Android"
 
-        except:
+        except Exception:
             pass
 
         return os
 
-    except:
+    except Exception:
         return "Unknown"

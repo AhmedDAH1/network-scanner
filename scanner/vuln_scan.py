@@ -9,13 +9,12 @@ API docs: https://nvd.nist.gov/developers/vulnerabilities
 Rate limit: 5 requests/30s without API key (we stay well under this).
 """
 
-import urllib.request
-import urllib.parse
-import urllib.error
 import json
-import time
 import re
-
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
 
 NVD_API    = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 MAX_CVES   = 3
@@ -129,11 +128,13 @@ def _nvd_search(keyword, max_results=MAX_CVES):
     url = f"{NVD_API}?{params}"
 
     try:
-        req = urllib.request.Request(
+        # URL is always the hard-coded https:// NVD_API constant, never user input,
+        # so file:// or custom schemes can't reach urlopen.
+        req = urllib.request.Request( # noqa: S310
             url,
             headers={"User-Agent": "network-scanner/1.1 (educational use)"}
         )
-        with urllib.request.urlopen(req, timeout=8) as resp:
+        with urllib.request.urlopen(req, timeout=8) as resp:  # noqa: S310
             data = json.loads(resp.read())
     except Exception:
         return []
@@ -152,10 +153,14 @@ def _nvd_search(keyword, max_results=MAX_CVES):
             severity = metrics["cvssMetricV30"][0]["cvssData"].get("baseSeverity", "UNKNOWN")
         elif "cvssMetricV2" in metrics:
             score = metrics["cvssMetricV2"][0]["cvssData"].get("baseScore", 0)
-            if   score >= 9.0: severity = "CRITICAL"
-            elif score >= 7.0: severity = "HIGH"
-            elif score >= 4.0: severity = "MEDIUM"
-            else:              severity = "LOW"
+            if score >= 9.0:
+                severity = "CRITICAL"
+            elif score >= 7.0:
+                severity = "HIGH"
+            elif score >= 4.0:
+                severity = "MEDIUM"
+            else:
+                severity = "LOW"
 
         # Get description (English preferred)
         desc = ""
@@ -241,9 +246,9 @@ def scan_vulnerabilities(hosts, use_api=True):
 
     print(f"\n[+] Vulnerability scan — checking {total_ports} port(s)...")
     if use_api:
-        print(f"    Using NVD API + offline fallback")
+        print("    Using NVD API + offline fallback")
     else:
-        print(f"    Using offline CVE table")
+        print("    Using offline CVE table")
 
     for host in hosts:
         for port_info in host.get("tcp_ports", []):

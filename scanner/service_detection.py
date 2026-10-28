@@ -1,6 +1,5 @@
 import socket
 
-
 COMMON_PORTS = {
     21: "FTP",
     22: "SSH",

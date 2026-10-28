@@ -179,11 +179,16 @@ def detect_device(ip, mac=None):
     if device == "Unknown":
         try:
             hostname = socket.gethostbyaddr(ip)[0].lower()
-            if "router"  in hostname: device = "Router"
-            elif "iphone" in hostname: device = "iPhone"
-            elif "android"in hostname: device = "Android Phone"
-            elif "mac"    in hostname: device = "Mac"
-            elif "tv"     in hostname: device = "Smart TV"
+            if "router" in hostname:
+                device = "Router"
+            elif "iphone" in hostname:
+                device = "iPhone"
+            elif "android" in hostname:
+                device = "Android Phone"
+            elif "mac" in hostname:
+                device = "Mac"
+            elif "tv" in hostname:
+                device = "Smart TV"
         except Exception:
             pass
 

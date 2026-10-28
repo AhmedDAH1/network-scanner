@@ -1,7 +1,8 @@
-from scapy.all import ARP, Ether, srp, IP, ICMP, sr1, conf, get_if_list
 import ipaddress
-import subprocess
 import re
+import subprocess
+
+from scapy.all import ARP, ICMP, IP, Ether, conf, sr1, srp
 
 
 def get_active_interface():
@@ -16,6 +17,7 @@ def get_active_interface():
     try:
         # macOS: list all interfaces with ifconfig and find one with a LAN IP
         result = subprocess.run(
+            check=False
             ["ifconfig"],
             capture_output=True, text=True
         )
@@ -31,8 +33,7 @@ def get_active_interface():
                 if ip_match:
                     ip = ip_match.group(1)
                     is_lan = (
-                        ip.startswith("192.168.") or
-                        ip.startswith("10.")      or
+                        ip.startswith(("192.168.","10." )) or
                         re.match(r"172\.(1[6-9]|2\d|3[01])\.", ip)
                     )
                     is_skip = any(current_iface.startswith(p) for p in skip_prefixes)
@@ -45,6 +46,7 @@ def get_active_interface():
     try:
         # Linux fallback: parse 'ip route'
         result = subprocess.run(
+            check=False
             ["ip", "route", "show", "default"],
             capture_output=True, text=True
         )
@@ -81,7 +83,7 @@ def arp_scan(target_ip, iface=None):
         return []
 
     clients = []
-    for sent, received in result:
+    for _sent, received in result:
         clients.append({
             "ip":  received.psrc,
             "mac": received.hwsrc

@@ -1,5 +1,6 @@
-from scapy.all import IP, UDP, ICMP, sr1
 from concurrent.futures import ThreadPoolExecutor
+
+from scapy.all import ICMP, IP, UDP, sr1
 
 
 def udp_scan_port(target, port, timeout=2):

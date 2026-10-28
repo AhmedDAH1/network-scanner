@@ -6,15 +6,20 @@ traffic. Uses the built-in `dns-sd` CLI on macOS which talks directly to
 the daemon. On Linux, falls back to raw socket probe.
 """
 
-import subprocess
+import contextlib
+import platform
+import re
+import select
 import socket
 import struct
+import subprocess
 import time
-import re
-import platform
 from collections import defaultdict
 
 LISTEN_TIME = 8
+
+# Absolute path: never resolve a binary via PATH when running as root.
+DNS_SD = "/usr/bin/dns-sd"
 
 SERVICE_LABELS = {
     "_airplay._tcp":         "Apple TV / AirPlay",
@@ -92,8 +97,9 @@ def _dns_sd_browse(timeout):
     # Service type = Instance_Name + "." + proto_col  e.g. _airplay._tcp
     service_types = set()
     try:
-        proc = subprocess.Popen(
-            ["dns-sd", "-B", "_services._dns-sd._udp", "local"],
+        # Every argument here is a fixed string; nothing comes from the network.
+        proc = subprocess.Popen(  # noqa: S603
+            [DNS_SD, "-B", "_services._dns-sd._udp", "local"],
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
             text=True, bufsize=1
         )
@@ -116,8 +122,10 @@ def _dns_sd_browse(timeout):
     for svc in service_types:
         instances = []
         try:
-            proc = subprocess.Popen(
-                ["dns-sd", "-B", svc, "local"],
+            # svc is built from the regex above and always starts with "_",
+            # so it can never be parsed by dns-sd as a command-line option.
+            proc = subprocess.Popen(  # noqa: S603
+                [DNS_SD, "-B", svc, "local"],
                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                 text=True, bufsize=1
             )
@@ -137,9 +145,15 @@ def _dns_sd_browse(timeout):
 
         # Step 3: resolve each instance to IP
         for instance in instances:
+            # Instance names are announced by devices on the network, so they
+            # are attacker-controlled. Reject anything dns-sd could parse as an
+            # option (argument injection). List args + no shell rule out shell
+            # injection; the absolute DNS_SD path rules out PATH hijacking.
+            if instance.startswith("-"):
+                continue
             try:
-                proc = subprocess.Popen(
-                    ["dns-sd", "-L", instance, svc, "local"],
+                proc = subprocess.Popen(  # noqa: S603
+                    [DNS_SD, "-L", instance, svc, "local"],
                     stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                     text=True, bufsize=1
                 )
@@ -233,16 +247,15 @@ def _raw_socket_probe(timeout):
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
+        # SO_REUSEPORT doesn't exist on every platform; that's fine.
+        with contextlib.suppress(AttributeError):
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        except AttributeError:
-            pass
         sock.bind(("", MDNS_PORT))
         mreq = struct.pack("4sL", socket.inet_aton(MDNS_ADDR), socket.INADDR_ANY)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
         sock.settimeout(1.0)
         header = struct.pack("!HHHHHH", 0, 0, 1, 0, 0, 0)
-        qname  = b"".join(bytes([len(p)]) + p.encode() for p in ["_services","_dns-sd","_udp","local"]) + b"\x00"
+        qname  = b"".join(bytes([len(p)]) + p.encode() for p in ["_services", "_dns-sd", "_udp", "local"]) + b"\x00"
         query  = header + qname + struct.pack("!HH", 12, 0x8001)
         ss = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         ss.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 255)
@@ -253,7 +266,7 @@ def _raw_socket_probe(timeout):
             try:
                 data, addr = sock.recvfrom(4096)
                 src_ip = addr[0]
-                for name, rtype, rdata in _parse_mdns_packet(data):
+                for name, rtype, _rdata in _parse_mdns_packet(data):
                     nl = name.lower()
                     results[src_ip]["raw_names"].add(name)
                     if rtype == 12:
@@ -261,8 +274,8 @@ def _raw_socket_probe(timeout):
                             if svc in nl:
                                 results[src_ip]["services"].add(label)
                     if ".local" in nl and not results[src_ip]["hostname"]:
-                        results[src_ip]["hostname"] = nl.replace(".local","").split(".")[0]
-            except socket.timeout:
+                        results[src_ip]["hostname"] = nl.replace(".local", "").split(".")[0]
+            except TimeoutError:
                 continue
         sock.close()
     except Exception:
