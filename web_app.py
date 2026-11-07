@@ -22,6 +22,7 @@ from flask import (
     jsonify,
     render_template,
     request,
+    send_from_directory,
     stream_with_context,
 )
 
@@ -238,6 +239,12 @@ def add_security_headers(response):
 @app.route("/")
 def index():
     return render_template("index.html", demo_mode=DEMO_MODE, version=APP_VERSION)
+
+
+@app.route("/favicon.ico")
+def favicon():
+    # Browsers and tools ask for /favicon.ico on their own, even with <link> tags.
+    return send_from_directory(app.static_folder, "favicon.ico", mimetype="image/vnd.microsoft.icon")
 
 
 @app.route("/scan/stream")
