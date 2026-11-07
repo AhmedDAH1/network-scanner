@@ -5,6 +5,15 @@ All notable changes to NetScan. The format follows
 project uses [Semantic Versioning](https://semver.org/): MAJOR for breaking
 changes, MINOR for new features, PATCH for fixes.
 
+## [2.3.0] - 2026-11-08
+
+### Added
+- `detections/forward_alerts.py` sends the Suricata alerts from `eve.json` to
+  [SOAR-Lite](https://github.com/AhmedDAH1/soar-lite) as incidents, signed
+  with HMAC-SHA256. Only NetScan's rules by default (`--all-sids` for every
+  alert). Tested end to end: the recorded scan, run through Suricata and the
+  script, produces exactly two incidents.
+
 ## [2.2.0] - 2026-11-07
 
 Detections for NetScan itself: rules that catch this scanner from the
@@ -170,6 +179,7 @@ Released after 1.3 under an inconsistent number; 2.0.0 restores ordering.
 - Host discovery (ARP with ICMP fallback), TCP SYN scanning, service banners,
   TTL-based OS guess, JSON and HTML reports.
 
+[2.3.0]: https://github.com/AhmedDAH1/network-scanner/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/AhmedDAH1/network-scanner/compare/v2.1.1...v2.2.0
 [2.1.1]: https://github.com/AhmedDAH1/network-scanner/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/AhmedDAH1/network-scanner/compare/v2.0.0...v2.1.0

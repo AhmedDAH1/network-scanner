@@ -40,6 +40,20 @@ jq 'select(.event_type=="alert") | .alert.signature' out/eve.json
 To deploy, add the file to `rule-files` in `suricata.yaml`. SIDs 1000001 and
 1000002 are in the local-rules range; renumber them if they clash with yours.
 
+**Sending alerts to SOAR-Lite:** [forward_alerts.py](forward_alerts.py) turns
+the Suricata alerts in `eve.json` into incidents in
+[SOAR-Lite](https://github.com/AhmedDAH1/soar-lite), signed with HMAC-SHA256
+over a timestamp and the body:
+
+```bash
+export SOAR_WEBHOOK_SECRET=<SOAR-Lite's WEBHOOK_SECRET>
+python3 detections/forward_alerts.py out/eve.json --soar http://localhost:8000
+```
+
+Only NetScan's rules (SIDs 1000001-1000099) are sent unless you add
+`--all-sids`. A test runs the recorded scan through Suricata and this script
+and checks that exactly the two NetScan alerts arrive.
+
 **Sigma:** convert with [sigma-cli](https://github.com/SigmaHQ/sigma-cli) or
 pySigma. The correlation rule needs a backend that supports Sigma
 correlations (Splunk and Elasticsearch ES|QL do; Lucene and Kusto don't).
@@ -103,6 +117,7 @@ detections/
 ├── tests/benign_baseline.pcap             Normal traffic chosen to trip naive rules
 ├── tests/record_captures.sh               Re-records both captures in a network namespace
 ├── tests/pcap_to_logs.py                  Builds Zeek conn and web log records from a pcap
+├── forward_alerts.py                      Sends Suricata alerts to SOAR-Lite
 ├── README.md
 └── TESTING.md
 ```

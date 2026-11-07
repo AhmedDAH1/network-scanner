@@ -130,7 +130,10 @@ capture built to trip it (active-mode FTP also sends SYNs from port 20). CI
 runs Suricata on both captures, executes the Sigma rules and checks they still
 convert to Splunk and Elasticsearch queries. Results, the rule variants that
 were rejected and why, and the limitations are in
-[detections/TESTING.md](detections/TESTING.md). The Sigma rules are also in my
+[detections/TESTING.md](detections/TESTING.md). Suricata's alerts can be sent
+to [SOAR-Lite](https://github.com/AhmedDAH1/soar-lite), where they become
+incidents with the scanner's address as an indicator
+([detections/forward_alerts.py](detections/forward_alerts.py)). The Sigma rules are also in my
 [Sigma rule collection](https://github.com/AhmedDAH1/sigma-detection-rules),
 tested to the same standard as every other rule there.
 
@@ -138,7 +141,7 @@ tested to the same standard as every other rule there.
 
 ```bash
 pip install -r requirements-dev.txt
-python3 -m pytest      # 184 tests, about 8 seconds, no root or internet needed
+python3 -m pytest      # 194 tests, about 9 seconds, no root or internet needed
 ruff check .           # lint, including the Bandit security rules
 ```
 
