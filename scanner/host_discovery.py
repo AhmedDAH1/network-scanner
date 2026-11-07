@@ -1,8 +1,25 @@
 import ipaddress
+import os
 import re
 import subprocess
 
 from scapy.all import ARP, ICMP, IP, Ether, conf, sr1, srp
+
+
+def _find_binary(*candidates):
+    """Return the first absolute path that exists, or None.
+
+    The scanner runs as root, so we never let PATH decide which binary runs
+    (a planted fake 'ifconfig' earlier in PATH would execute as root).
+    """
+    for path in candidates:
+        if os.path.isfile(path):
+            return path
+    return None
+
+
+IFCONFIG = _find_binary("/sbin/ifconfig", "/usr/sbin/ifconfig")
+IP_CMD = _find_binary("/usr/sbin/ip", "/sbin/ip", "/usr/bin/ip", "/bin/ip")
 
 
 def get_active_interface():
@@ -16,10 +33,12 @@ def get_active_interface():
 
     try:
         # macOS: list all interfaces with ifconfig and find one with a LAN IP
-        result = subprocess.run(
-            check=False
-            ["ifconfig"],
-            capture_output=True, text=True
+        if IFCONFIG is None:
+            raise FileNotFoundError("ifconfig not found")
+        # Absolute path from a fixed list, no arguments from outside.
+        result = subprocess.run(  # noqa: S603
+            [IFCONFIG],
+            check=False, capture_output=True, text=True
         )
         current_iface = None
         for line in result.stdout.splitlines():
@@ -45,10 +64,12 @@ def get_active_interface():
 
     try:
         # Linux fallback: parse 'ip route'
-        result = subprocess.run(
-            check=False
-            ["ip", "route", "show", "default"],
-            capture_output=True, text=True
+        if IP_CMD is None:
+            raise FileNotFoundError("ip not found")
+        # Absolute path from a fixed list, fixed arguments.
+        result = subprocess.run(  # noqa: S603
+            [IP_CMD, "route", "show", "default"],
+            check=False, capture_output=True, text=True
         )
         match = re.search(r"dev (\S+)", result.stdout)
         if match:
