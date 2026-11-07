@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NetScan</title>
+<link rel="preload" href="{{ url_for('static', filename='fonts/atkinson-hyperlegible-next-latin-400-normal.woff2') }}" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="{{ url_for('static', filename='fonts/atkinson-hyperlegible-mono-latin-400-normal.woff2') }}" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+<script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+</head>
+<body data-demo="{{ 'true' if demo_mode else 'false' }}">
+<a class="skip-link" href="#main">Skip to content</a>
+
+<div class="shell">
+  <nav class="rail" aria-label="Main">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.2"></circle>
+        <circle cx="4.5" cy="5" r="2"></circle>
+        <circle cx="19.5" cy="5" r="2"></circle>
+        <circle cx="4.5" cy="19" r="2"></circle>
+        <circle cx="19.5" cy="19" r="2"></circle>
+        <path d="M6 6.4 9.6 9.8M18 6.4l-3.6 3.4M6 17.6l3.6-3.4M18 17.6l-3.6-3.4"></path>
+      </svg>
+      <span>NetScan</span>
+    </div>
+
+    <ul class="nav">
+      <li><button type="button" class="nav-item" data-page="scan">Scan</button></li>
+      <li><button type="button" class="nav-item" data-page="results">Results <span class="nav-count mono" id="nav-results-count"></span></button></li>
+      <li><button type="button" class="nav-item" data-page="map">Map</button></li>
+      <li><button type="button" class="nav-item" data-page="history">History</button></li>
+    </ul>
+
+    <div class="rail-foot">
+      <button type="button" class="theme-toggle" id="theme-toggle">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18Z"></path><circle cx="12" cy="12" r="9"></circle></svg>
+        <span id="theme-toggle-label">Light theme</span>
+      </button>
+      <p class="credit">
+        Built by <a href="https://github.com/AhmedDAH1/network-scanner" rel="noopener noreferrer">Ahmed Dahdouh</a><br>
+        Version {{ version }}
+      </p>
+    </div>
+  </nav>
+
+  <main class="main" id="main" tabindex="-1">
+
+    <!-- ── Scan ─────────────────────────────────────────── -->
+    <section class="page" id="page-scan" aria-labelledby="scan-title" hidden>
+      <header class="page-head">
+        <h1 id="scan-title">New scan</h1>
+        <p class="lede">Find live hosts, open ports and known vulnerabilities on a network you are allowed to test.</p>
+      </header>
+
+      {% if demo_mode %}
+      <div class="notice" role="note">
+        <p><strong>This is a read-only demo.</strong> Live scanning needs raw-socket access, which this host does not allow, so the form is turned off. Results, Map and History show a sample scan of a fictional home lab.</p>
+        <p><a href="https://github.com/AhmedDAH1/network-scanner#installation" rel="noopener noreferrer">Run it locally with Docker</a> to scan your own network.</p>
+      </div>
+      {% endif %}
+
+      <form class="scan-form" id="scan-form" novalidate>
+        <div class="field field-target">
+          <label for="target">Target</label>
+          <input id="target" class="mono" autocomplete="off" autocapitalize="off" spellcheck="false"
+                 placeholder="192.168.1.0/24" aria-describedby="target-hint"{% if demo_mode %} disabled{% endif %}>
+          <p class="hint" id="target-hint">One IPv4 address, or a network in CIDR notation up to /16.</p>
+        </div>
+        <div class="field field-ports">
+          <label for="ports">Ports</label>
+          <input id="ports" class="mono" value="1-1000" autocomplete="off" spellcheck="false"
+                 aria-describedby="ports-hint"{% if demo_mode %} disabled{% endif %}>
+          <p class="hint" id="ports-hint">One port or a range, like 80 or 1-1000.</p>
+        </div>
+
+        <fieldset class="options"{% if demo_mode %} disabled{% endif %}>
+          <legend>Also run</legend>
+          <label class="check"><input type="checkbox" id="opt-udp"> UDP scan of common ports</label>
+          <label class="check"><input type="checkbox" id="opt-vuln"> Vulnerability lookup</label>
+          <label class="check"><input type="checkbox" id="opt-offline" disabled> Offline CVE table only</label>
+        </fieldset>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" id="scan-btn"{% if demo_mode %} disabled{% endif %}>Start scan</button>
+          <p class="scan-status" id="scan-status" role="status" aria-live="polite"></p>
+        </div>
+      </form>
+
+      <section class="log-panel" id="log-panel" aria-labelledby="log-title" hidden>
+        <div class="log-head">
+          <h2 id="log-title">Scan output</h2>
+          <span class="mono muted" id="elapsed"></span>
+        </div>
+        <ol class="log mono" id="log"></ol>
+      </section>
+    </section>
+
+    <!-- ── Results ──────────────────────────────────────── -->
+    <section class="page" id="page-results" aria-labelledby="results-title" hidden>
+      <header class="page-head with-action">
+        <div>
+          <h1 id="results-title">Results</h1>
+          <p class="lede" id="results-meta">No scan loaded yet.</p>
+        </div>
+        <button type="button" class="btn" data-goto="scan">New scan</button>
+      </header>
+      <div id="results"></div>
+    </section>
+
+    <!-- ── Map ──────────────────────────────────────────── -->
+    <section class="page" id="page-map" aria-labelledby="map-title" hidden>
+      <header class="page-head">
+        <h1 id="map-title">Network map</h1>
+        <p class="lede">Each host connects to the gateway. The ring shows its most severe known vulnerability. Select a host to see its details.</p>
+      </header>
+      <div class="map-layout">
+        <div class="map-canvas" id="map-canvas">
+          <svg id="map-svg" role="group" aria-label="Network map"></svg>
+        </div>
+        <ul class="legend map-legend" aria-label="Ring colours">
+          <li><span class="swatch sev-4"></span>Critical</li>
+          <li><span class="swatch sev-3"></span>High</li>
+          <li><span class="swatch sev-2"></span>Medium</li>
+          <li><span class="swatch sev-1"></span>Low</li>
+          <li><span class="swatch sev-0"></span>None known</li>
+        </ul>
+        <aside class="map-detail" id="map-detail" aria-live="polite">
+          <p class="muted">Select a host on the map to see its ports and vulnerabilities.</p>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ── History ──────────────────────────────────────── -->
+    <section class="page" id="page-history" aria-labelledby="history-title" hidden>
+      <header class="page-head">
+        <h1 id="history-title">History</h1>
+        <p class="lede">Your last 20 scans. Open one to see its results.</p>
+      </header>
+      <div id="history"></div>
+    </section>
+
+  </main>
+</div>
+</body>
+</html>

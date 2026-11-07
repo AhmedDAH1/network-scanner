@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
+import base64
 import json
 import os
+import re
+import sys
+from datetime import datetime, timezone
 
 from colorama import Fore, init
 from tabulate import tabulate
@@ -46,9 +50,42 @@ def json_for_script_tag(data):
     )
 
 
-def save_html(all_results, path="scan_report.html"):
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Fonts embedded into the HTML report, so it looks the same offline and
+# when it's emailed to someone who doesn't have them installed.
+REPORT_FONTS = [
+    ("Atkinson Next", 400, "atkinson-hyperlegible-next-latin-400-normal.woff2"),
+    ("Atkinson Next", 600, "atkinson-hyperlegible-next-latin-600-normal.woff2"),
+    ("Atkinson Next", 700, "atkinson-hyperlegible-next-latin-700-normal.woff2"),
+    ("Atkinson Mono", 400, "atkinson-hyperlegible-mono-latin-400-normal.woff2"),
+    ("Atkinson Mono", 600, "atkinson-hyperlegible-mono-latin-600-normal.woff2"),
+]
+
+
+def embedded_font_css():
+    """@font-face rules with the font files inlined as base64 data URLs.
+
+    Returns "" if the font files are missing; the report then falls back to
+    system fonts instead of failing.
+    """
+    rules = []
+    for family, weight, filename in REPORT_FONTS:
+        try:
+            with open(os.path.join(APP_DIR, "static", "fonts", filename), "rb") as f:
+                data = base64.b64encode(f.read()).decode("ascii")
+        except OSError:
+            continue
+        rules.append(
+            f'@font-face {{ font-family: "{family}"; font-weight: {weight}; font-display: swap; '
+            f'src: url(data:font/woff2;base64,{data}) format("woff2"); }}'
+        )
+    return "\n".join(rules)
+
+
+def save_html(all_results, meta=None, path="scan_report.html"):
     # Load the HTML template
-    template_path = os.path.join(os.path.dirname(__file__), "report_template.html")
+    template_path = os.path.join(APP_DIR, "report_template.html")
     try:
         with open(template_path, encoding="utf-8") as f:
             template = f.read()
@@ -56,8 +93,15 @@ def save_html(all_results, path="scan_report.html"):
         print(f"{Fore.RED}[-] report_template.html not found — skipping HTML report.")
         return
 
-    # Inject scan data into the template (escaped for a <script> context)
-    html = template.replace("__SCAN_DATA__", json_for_script_tag(all_results))
+    values = {
+        "FONT_FACES": embedded_font_css(),
+        "SCAN_DATA":  json_for_script_tag(all_results),   # escaped for a <script> context
+        "SCAN_META":  json_for_script_tag(meta or {}),
+    }
+    # One pass over the TEMPLATE only. With chained str.replace() calls, a
+    # banner containing the text "__SCAN_META__" would be replaced again by a
+    # later call; re.sub never re-scans text it has already inserted.
+    html = re.sub(r"__(FONT_FACES|SCAN_DATA|SCAN_META)__", lambda m: values[m.group(1)], template)
 
     with open(path, "w", encoding="utf-8") as f:
         f.write(html)
@@ -79,7 +123,10 @@ def print_banner():
 
 
 def main():
-    print_banner()
+    # The banner is for people at a terminal. When the output goes into
+    # another program (like the web dashboard), skip it.
+    if sys.stdout.isatty():
+        print_banner()
 
     parser = argparse.ArgumentParser(description="Network Scanner v1.0")
 
@@ -205,7 +252,12 @@ def main():
 
     # ── Save reports ───────────────────────
     save_json(all_results)
-    save_html(all_results)
+    save_html(all_results, meta={
+        "target":    args.network or args.target,
+        "ports":     args.ports,
+        "generated": datetime.now(timezone.utc).isoformat(),
+        "tool":      "NetScan",
+    })
 
 
 if __name__ == "__main__":

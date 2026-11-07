@@ -1,511 +1,248 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Network Scan Report</title>
-    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg:         #090d13;
-            --bg2:        #0d1420;
-            --bg3:        #111b2a;
-            --border:     #1a2d45;
-            --accent:     #00d4ff;
-            --accent2:    #0088cc;
-            --green:      #00ff88;
-            --red:        #ff4466;
-            --yellow:     #ffcc00;
-            --text:       #c8daf0;
-            --text-dim:   #4a6a8a;
-            --text-mid:   #7a9ab8;
-            --mono:       'Share Tech Mono', monospace;
-            --sans:       'Rajdhani', sans-serif;
-        }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Network scan report</title>
+<style>
+/* Fonts are embedded by scanner_cli.py so the report is a single, offline file. */
+__FONT_FACES__
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  color-scheme: light;
+  --page: #FFFFFF; --sunken: #F4F5F3; --seam: #DCDFDB; --seam-strong: #C2C7C2;
+  --text: #1E2125; --muted: #5B6269; --faint: #7E858C; --accent: #2C5F9E;
+  --critical: #C8333A; --high: #BE5A1B; --medium: #8E6B00; --low: #5A6C7E; --none: #CDD1CD;
+  --font: "Atkinson Next", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Atkinson Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media screen and (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --page: #1C1F23; --sunken: #24282D; --seam: #33383F; --seam-strong: #464C54;
+    --text: #E8E6E1; --muted: #9BA1A8; --faint: #737A82; --accent: #78A6DA;
+    --critical: #F0595E; --high: #F08A4B; --medium: #E3BD4A; --low: #8CA0B3; --none: #3E444C;
+  }
+}
 
-        body {
-            background: var(--bg);
-            color: var(--text);
-            font-family: var(--sans);
-            font-size: 15px;
-            min-height: 100vh;
-        }
+* { box-sizing: border-box; }
+html { background: var(--page); }
+body {
+  margin: 0; background: var(--page); color: var(--text);
+  font: 400 14px/1.55 var(--font); font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+.doc { max-width: 960px; margin: 0 auto; padding: 56px 40px 72px; }
+h1, h2, h3 { margin: 0; line-height: 1.2; }
+h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.012em; }
+h2 { font-size: 18px; font-weight: 700; margin: 44px 0 14px; }
+h3 { font-size: 14px; font-weight: 600; margin: 18px 0 8px; }
+p { margin: 0; }
+a { color: var(--accent); text-underline-offset: 2px; }
+.mono { font-family: var(--mono); font-variant-ligatures: none; }
+.muted { color: var(--muted); }
 
-        /* ── Background grid ── */
-        body::before {
-            content: '';
-            position: fixed;
-            inset: 0;
-            background-image:
-                linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
-            background-size: 40px 40px;
-            pointer-events: none;
-            z-index: 0;
-        }
+.masthead { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; padding-bottom: 24px; border-bottom: 2px solid var(--text); }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--muted); }
+.brand svg { width: 18px; height: 18px; fill: var(--accent); stroke: var(--accent); stroke-width: 1.4; }
+.brand svg path { fill: none; }
+.meta { display: grid; grid-template-columns: auto 1fr; gap: 4px 18px; margin: 18px 0 0; }
+.meta dt { color: var(--muted); }
+.meta dd { margin: 0; }
 
-        .wrap {
-            position: relative;
-            z-index: 1;
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 40px 24px 80px;
-        }
+.summary { display: grid; gap: 12px; margin-top: 28px; }
+.totals { display: flex; flex-wrap: wrap; gap: 6px 28px; color: var(--muted); }
+.totals strong { color: var(--text); font-size: 20px; margin-right: 6px; }
+.dist { display: flex; gap: 2px; height: 10px; border-radius: 5px; overflow: hidden; }
+.dist span { min-width: 6px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 22px; list-style: none; margin: 0; padding: 0; color: var(--muted); }
+.legend li { display: inline-flex; align-items: center; gap: 8px; }
+.legend b { color: var(--text); }
+.swatch { width: 10px; height: 10px; border-radius: 2px; }
+.sev-4 { background: var(--critical); } .sev-3 { background: var(--high); }
+.sev-2 { background: var(--medium); }   .sev-1 { background: var(--low); }
+.sev-0 { background: var(--none); }
 
-        /* ── Header ── */
-        header {
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 32px;
-            margin-bottom: 40px;
-            display: flex;
-            align-items: flex-end;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 16px;
-        }
+.risk { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.meter { display: inline-grid; grid-auto-flow: column; gap: 2px; }
+.meter i { width: 4px; height: 12px; border-radius: 1px; background: var(--none); }
+.meter[data-level="1"] i:nth-child(-n+1) { background: var(--low); }
+.meter[data-level="2"] i:nth-child(-n+2) { background: var(--medium); }
+.meter[data-level="3"] i:nth-child(-n+3) { background: var(--high); }
+.meter[data-level="4"] i:nth-child(-n+4) { background: var(--critical); }
+.risk-label { font-weight: 600; }
+.risk-none .risk-label { color: var(--faint); font-weight: 400; }
 
-        .logo-area h1 {
-            font-family: var(--mono);
-            font-size: 11px;
-            color: var(--accent);
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            margin-bottom: 8px;
-        }
+table { width: 100%; border-collapse: collapse; }
+th { padding: 8px 12px 8px 0; color: var(--muted); font-size: 12px; font-weight: 600; text-align: left; border-bottom: 1px solid var(--seam-strong); white-space: nowrap; }
+td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--seam); vertical-align: top; }
+.num { text-align: right; }
+.ip { font-family: var(--mono); font-weight: 600; }
+.sub { display: block; color: var(--muted); font-size: 12px; }
+.port { font-family: var(--mono); font-weight: 600; white-space: nowrap; }
+.banner { font-family: var(--mono); font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
+.cves { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.cve { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; align-items: center; }
+.cve-id { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+.cve-desc { grid-column: 2; color: var(--muted); font-size: 12.5px; }
 
-        .logo-area h2 {
-            font-size: 32px;
-            font-weight: 700;
-            color: #fff;
-            letter-spacing: 1px;
-        }
+.host { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--seam-strong); break-inside: avoid-page; }
+.host-head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+.host-head .ip { font-size: 18px; }
+/* Same column widths in every host's table, so they line up down the page. */
+.ports { table-layout: fixed; }
+.ports th:nth-child(1) { width: 13%; } .ports th:nth-child(2) { width: 13%; }
+.ports th:nth-child(3) { width: 34%; } .ports th:nth-child(4) { width: 40%; }
+.facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px 24px; margin: 12px 0 0; }
+.facts div { display: grid; }
+.facts dt { color: var(--muted); font-size: 12px; }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
 
-        .logo-area h2 span { color: var(--accent); }
+.notes { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--seam); color: var(--muted); font-size: 12.5px; display: grid; gap: 6px; max-width: 80ch; }
 
-        .meta {
-            text-align: right;
-            font-family: var(--mono);
-            font-size: 11px;
-            color: var(--text-dim);
-            line-height: 2;
-        }
-
-        .meta strong { color: var(--text-mid); }
-
-        /* ── Summary bar ── */
-        .summary {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 12px;
-            margin-bottom: 40px;
-        }
-
-        .stat {
-            background: var(--bg2);
-            border: 1px solid var(--border);
-            border-top: 2px solid var(--accent);
-            padding: 16px 20px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .stat::after {
-            content: '';
-            position: absolute;
-            top: 0; right: 0;
-            width: 40px; height: 40px;
-            background: radial-gradient(circle at top right, rgba(0,212,255,0.08), transparent 70%);
-        }
-
-        .stat-label {
-            font-family: var(--mono);
-            font-size: 10px;
-            letter-spacing: 2px;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            margin-bottom: 6px;
-        }
-
-        .stat-value {
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--accent);
-            font-family: var(--mono);
-        }
-
-        /* ── Host card ── */
-        .host-card {
-            background: var(--bg2);
-            border: 1px solid var(--border);
-            margin-bottom: 24px;
-            animation: fadeIn 0.4s ease both;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-
-        .host-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 16px 24px;
-            background: var(--bg3);
-            border-bottom: 1px solid var(--border);
-            flex-wrap: wrap;
-            gap: 12px;
-            cursor: pointer;
-            user-select: none;
-        }
-
-        .host-header:hover { background: #141e2e; }
-
-        .host-ip {
-            font-family: var(--mono);
-            font-size: 18px;
-            color: #fff;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .host-ip::before {
-            content: '▶';
-            font-size: 9px;
-            color: var(--accent);
-        }
-
-        .host-mac {
-            font-family: var(--mono);
-            font-size: 11px;
-            color: var(--text-dim);
-            margin-top: 2px;
-        }
-
-        .badges {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        .badge {
-            font-family: var(--mono);
-            font-size: 10px;
-            letter-spacing: 1px;
-            padding: 3px 10px;
-            border: 1px solid;
-            text-transform: uppercase;
-        }
-
-        .badge-os   { color: var(--yellow); border-color: rgba(255,204,0,0.3); background: rgba(255,204,0,0.05); }
-        .badge-dev  { color: var(--accent);  border-color: rgba(0,212,255,0.3); background: rgba(0,212,255,0.05); }
-        .badge-vend { color: var(--green);   border-color: rgba(0,255,136,0.3); background: rgba(0,255,136,0.05); }
-        .badge-rand { color: var(--text-dim);border-color: var(--border);       background: transparent; }
-
-        .host-body {
-            padding: 24px;
-        }
-
-        /* ── Section label ── */
-        .section-label {
-            font-family: var(--mono);
-            font-size: 10px;
-            letter-spacing: 3px;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .section-label::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: var(--border);
-        }
-
-        /* ── Port table ── */
-        .port-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-family: var(--mono);
-            font-size: 13px;
-            margin-bottom: 28px;
-        }
-
-        .port-table th {
-            text-align: left;
-            padding: 8px 14px;
-            font-size: 10px;
-            letter-spacing: 2px;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            border-bottom: 1px solid var(--border);
-            font-family: var(--sans);
-            font-weight: 600;
-        }
-
-        .port-table td {
-            padding: 10px 14px;
-            border-bottom: 1px solid rgba(26,45,69,0.5);
-            color: var(--text);
-            vertical-align: middle;
-        }
-
-        .port-table tr:last-child td { border-bottom: none; }
-
-        .port-table tr:hover td { background: rgba(0,212,255,0.03); }
-
-        .port-num {
-            color: var(--accent);
-            font-weight: bold;
-        }
-
-        .proto-tcp { color: var(--green); }
-        .proto-udp { color: var(--yellow); }
-
-        .service-name { color: #fff; }
-
-        .banner-text {
-            color: var(--text-mid);
-            font-size: 11px;
-            max-width: 400px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        /* ── CVE table ── */
-        .cve-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-family: var(--mono);
-            font-size: 12px;
-            margin-top: 6px;
-            margin-bottom: 20px;
-        }
-        .cve-table td {
-            padding: 7px 12px;
-            border-bottom: 1px solid rgba(26,45,69,0.4);
-            vertical-align: top;
-        }
-        .cve-table tr:last-child td { border-bottom: none; }
-        .cve-table tr:hover td { background: rgba(255,68,102,0.03); }
-
-        .cve-id   { color: var(--accent); white-space: nowrap; width: 140px; }
-        .cve-desc { color: var(--text-mid); }
-
-        .sev-CRITICAL { color: #ff2244; font-weight: bold; width: 80px; }
-        .sev-HIGH     { color: #ff6622; font-weight: bold; width: 80px; }
-        .sev-MEDIUM   { color: var(--yellow); width: 80px; }
-        .sev-LOW      { color: var(--text-dim); width: 80px; }
-        .sev-UNKNOWN  { color: var(--text-dim); width: 80px; }
-
-        .no-ports {
-            font-family: var(--mono);
-            font-size: 12px;
-            color: var(--text-dim);
-            padding: 12px 0;
-        }
-
-        /* ── Footer ── */
-        footer {
-            margin-top: 60px;
-            padding-top: 24px;
-            border-top: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-
-        footer span {
-            font-family: var(--mono);
-            font-size: 11px;
-            color: var(--text-dim);
-        }
-
-        footer strong { color: var(--accent); }
-    </style>
+@media (max-width: 700px) {
+  .doc { padding: 32px 16px 48px; }
+  .masthead { flex-direction: column; }
+  .overview .col-device, .overview .col-os { display: none; }
+}
+@media print {
+  .doc { padding: 0; max-width: none; }
+  h2 { break-after: avoid; }
+  a { color: inherit; text-decoration: none; }
+}
+</style>
 </head>
 <body>
-<div class="wrap">
+<main class="doc">
+  <header class="masthead">
+    <div>
+      <h1>Network scan report</h1>
+      <dl class="meta" id="meta"></dl>
+    </div>
+    <div class="brand">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.2"></circle><circle cx="4.5" cy="5" r="2"></circle>
+        <circle cx="19.5" cy="5" r="2"></circle><circle cx="4.5" cy="19" r="2"></circle>
+        <circle cx="19.5" cy="19" r="2"></circle>
+        <path d="M6 6.4 9.6 9.8M18 6.4l-3.6 3.4M6 17.6l3.6-3.4M18 17.6l-3.6-3.4"></path>
+      </svg>
+      NetScan
+    </div>
+  </header>
 
-    <!-- Header -->
-    <header>
-        <div class="logo-area">
-            <h1>// network recon</h1>
-            <h2>Scan <span>Report</span></h2>
-        </div>
-        <div class="meta" id="meta-block">
-            <div><strong>DATE</strong> &nbsp; —</div>
-            <div><strong>HOSTS</strong> &nbsp; —</div>
-            <div><strong>OPEN PORTS</strong> &nbsp; —</div>
-        </div>
-    </header>
+  <section class="summary" id="summary" aria-label="Summary"></section>
 
-    <!-- Summary stats -->
-    <div class="summary" id="summary"></div>
+  <h2>Hosts by risk</h2>
+  <table class="overview" id="overview"></table>
 
-    <!-- Host cards -->
-    <div id="hosts"></div>
+  <h2>Host details</h2>
+  <div id="hosts"></div>
 
-    <!-- Footer -->
-    <footer>
-        <span>Generated by <strong>Network Scanner v1.1</strong> · Ahmed Dahdouh</span>
-        <span id="footer-time"></span>
-    </footer>
-
-</div>
+  <footer class="notes">
+    <p>Risk is the most severe CVE matched to a host's services. A host without a match can still be exposed. The OS guess comes from the packet TTL and is only a hint.</p>
+    <p>Only scan networks you own or have written permission to test.</p>
+  </footer>
+</main>
 
 <script>
-// ── Inject scan data ──────────────────────────────────────────────
+// Scan data is embedded by scanner_cli.py (escaped for a <script> context).
+// It is UNTRUSTED: banners and names come from the scanned devices, so every
+// value goes through esc() before it is inserted as HTML.
 const SCAN_DATA = __SCAN_DATA__;
+const SCAN_META = __SCAN_META__;
 
-// ── Helpers ──────────────────────────────────────────────────────
-// Scan data is UNTRUSTED (banners, hostnames, vendors come from the scanned
-// devices). Escape every value before inserting it with innerHTML.
-function escapeHtml(value) {
-    return String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+function esc(v) {
+  return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+const list = (v) => (Array.isArray(v) ? v : []);
+const SEVERITY = { 4: 'Critical', 3: 'High', 2: 'Medium', 1: 'Low', 0: 'None known' };
+const LEVEL_OF = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
+const cveLevel = (c) => LEVEL_OF[String(c?.severity || '').toUpperCase()] || 0;
+const hostLevel = (h) => list(h.tcp_ports).reduce((m, p) => Math.max(m, ...list(p.cves).map(cveLevel), 0), 0);
+const known = (v) => (v && v !== 'Unknown' ? v : '');
+const vendorName = (h) => { const v = known(h.vendor); return v && v.toLowerCase().includes('randomized') ? 'Private (randomized) MAC' : v; };
+const deviceName = (h) => known(String(h.device || '').replace(' (Randomized MAC (Privacy Mode))', '').trim());
+const ipKey = (ip) => { const p = String(ip || '').split('.').map(Number); return p.length === 4 && p.every(Number.isFinite) ? p.reduce((a, n) => a * 256 + n, 0) : Infinity; };
+
+function riskHtml(level) {
+  return `<span class="risk${level ? '' : ' risk-none'}"><span class="meter" data-level="${level}" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="risk-label">${SEVERITY[level]}</span></span>`;
+}
+function cveHtml(c) {
+  const id = String(c?.id || '');
+  const label = /^CVE-\d{4}-\d{4,7}$/.test(id)
+    ? `<a class="cve-id" href="https://nvd.nist.gov/vuln/detail/${esc(id)}">${esc(id)}</a>`
+    : `<span class="cve-id">${esc(id)}</span>`;
+  return `<li class="cve">${riskHtml(cveLevel(c))}${label}<span class="cve-desc">${esc(c?.desc)}</span></li>`;
 }
 
-function countPorts(hosts) {
-    return hosts.reduce((n, h) =>
-        n + (h.tcp_ports?.length || 0) + (h.udp_ports?.length || 0), 0);
-}
+const hosts = list(SCAN_DATA)
+  .map((h) => ({ h, level: hostLevel(h) }))
+  .sort((a, b) => b.level - a.level || ipKey(a.h.host) - ipKey(b.h.host));
 
-function isRandomized(vendor) {
-    return vendor && vendor.toLowerCase().includes("randomized");
-}
+// ── Meta ──
+const meta = [
+  ['Target', SCAN_META.target ? `<span class="mono">${esc(SCAN_META.target)}</span>` : '—'],
+  ['Ports', SCAN_META.ports ? `<span class="mono">${esc(SCAN_META.ports)}</span>` : '—'],
+  ['Scanned', esc(SCAN_META.generated ? new Date(SCAN_META.generated).toLocaleString() : '—')],
+  ['Tool', esc(SCAN_META.tool || 'NetScan')],
+];
+document.getElementById('meta').innerHTML = meta.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
 
-function now() {
-    return new Date().toLocaleString('en-US', {
-        year: 'numeric', month: 'short', day: 'numeric',
-        hour: '2-digit', minute: '2-digit'
-    });
-}
-
-// ── Meta block ────────────────────────────────────────────────────
-const totalPorts = countPorts(SCAN_DATA);
-document.getElementById('meta-block').innerHTML = `
-    <div><strong>DATE</strong> &nbsp; ${now()}</div>
-    <div><strong>HOSTS</strong> &nbsp; ${SCAN_DATA.length}</div>
-    <div><strong>OPEN PORTS</strong> &nbsp; ${totalPorts}</div>
-`;
-
-// ── Summary stats ─────────────────────────────────────────────────
-const tcpTotal = SCAN_DATA.reduce((n, h) => n + (h.tcp_ports?.length || 0), 0);
-const udpTotal = SCAN_DATA.reduce((n, h) => n + (h.udp_ports?.length || 0), 0);
-const vendors  = new Set(SCAN_DATA.map(h => h.vendor).filter(v => v && !isRandomized(v) && v !== 'Unknown'));
-
+// ── Summary ──
+const byLevel = [0, 0, 0, 0, 0];
+hosts.forEach(({ level }) => { byLevel[level] += 1; });
+const tcp = hosts.reduce((n, { h }) => n + list(h.tcp_ports).length, 0);
+const udp = hosts.reduce((n, { h }) => n + list(h.udp_ports).length, 0);
+const cves = hosts.reduce((n, { h }) => n + list(h.tcp_ports).reduce((m, p) => m + list(p.cves).length, 0), 0);
+const levels = [4, 3, 2, 1, 0].filter((l) => byLevel[l]);
 document.getElementById('summary').innerHTML = `
-    <div class="stat"><div class="stat-label">Hosts Found</div><div class="stat-value">${SCAN_DATA.length}</div></div>
-    <div class="stat"><div class="stat-label">TCP Ports Open</div><div class="stat-value">${tcpTotal}</div></div>
-    <div class="stat"><div class="stat-label">UDP Ports Open</div><div class="stat-value">${udpTotal}</div></div>
-    <div class="stat"><div class="stat-label">Vendors ID'd</div><div class="stat-value">${vendors.size}</div></div>
-`;
+  <div class="totals">
+    <span><strong>${hosts.length}</strong>${hosts.length === 1 ? 'host' : 'hosts'}</span>
+    <span><strong>${tcp}</strong>open TCP ${tcp === 1 ? 'port' : 'ports'}</span>
+    <span><strong>${udp}</strong>open or filtered UDP</span>
+    <span><strong>${cves}</strong>matched ${cves === 1 ? 'CVE' : 'CVEs'}</span>
+  </div>
+  ${hosts.length ? `<div class="dist" role="img" aria-label="Hosts by most severe vulnerability">${levels.map((l) => `<span class="sev-${l}" data-grow="${byLevel[l]}"></span>`).join('')}</div>
+  <ul class="legend">${levels.map((l) => `<li><span class="swatch sev-${l}"></span><span><b>${byLevel[l]}</b> ${SEVERITY[l].toLowerCase()}</span></li>`).join('')}</ul>` : '<p class="muted">No live hosts were found.</p>'}`;
+document.querySelectorAll('.dist span').forEach((s) => { s.style.flexGrow = s.dataset.grow; });
 
-// ── Host cards ────────────────────────────────────────────────────
-function severityClass(sev) {
-    return 'sev-' + escapeHtml(String(sev || 'UNKNOWN').toUpperCase());
-}
+// ── Overview table ──
+document.getElementById('overview').innerHTML = `
+  <thead><tr><th>Risk</th><th>Host</th><th class="col-device">Device</th><th class="col-os">OS guess</th><th>Open ports</th><th class="num">CVEs</th></tr></thead>
+  <tbody>${hosts.map(({ h, level }) => `<tr>
+    <td>${riskHtml(level)}</td>
+    <td><span class="ip">${esc(h.host)}</span>${h.hostname ? `<span class="sub">${esc(h.hostname)}</span>` : ''}</td>
+    <td class="col-device">${esc(deviceName(h) || '—')}${vendorName(h) ? `<span class="sub">${esc(vendorName(h))}</span>` : ''}</td>
+    <td class="col-os">${esc(known(h.os) || '—')}</td>
+    <td class="mono">${list(h.tcp_ports).map((p) => esc(p.port)).join('  ') || '<span class="muted">None</span>'}</td>
+    <td class="num">${list(h.tcp_ports).reduce((m, p) => m + list(p.cves).length, 0) || '—'}</td>
+  </tr>`).join('')}</tbody>`;
 
-function cveRows(cves) {
-    if (!cves || cves.length === 0) return '';
-    const rows = cves.map(c => `
-        <tr>
-            <td class="cve-id">${escapeHtml(c.id)}</td>
-            <td class="${severityClass(c.severity)}">${escapeHtml(c.severity)}</td>
-            <td class="cve-desc">${escapeHtml(c.desc)}</td>
-        </tr>`).join('');
-    return `<table class="cve-table">${rows}</table>`;
-}
-
-function portRow(port, service, banner, proto, cves) {
-    const protoClass = proto === 'UDP' ? 'proto-udp' : 'proto-tcp';
-    const cveSection = cveRows(cves);
-    return `
-        <tr>
-            <td><span class="port-num">${escapeHtml(port)}</span></td>
-            <td><span class="${protoClass}">${proto}</span></td>
-            <td><span class="service-name">${escapeHtml(service)}</span></td>
-            <td>
-                <span class="banner-text">${escapeHtml(banner || '—')}</span>
-                ${cveSection}
-            </td>
-        </tr>`;
-}
-
-function hostCard(host, i) {
-    const rand = isRandomized(host.vendor);
-    const vendorBadge = rand
-        ? `<span class="badge badge-rand">Privacy MAC</span>`
-        : host.vendor && host.vendor !== 'Unknown'
-            ? `<span class="badge badge-vend">${escapeHtml(host.vendor)}</span>`
-            : '';
-
-    const osBadge     = host.os     && host.os     !== 'Unknown' ? `<span class="badge badge-os">${escapeHtml(host.os)}</span>` : '';
-    const deviceBadge = host.device && host.device !== 'Unknown' ? `<span class="badge badge-dev">${escapeHtml(host.device.replace(' (Randomized MAC (Privacy Mode))', ''))}</span>` : '';
-    const hostnameLine = host.hostname ? `<div class="host-mac" style="color:var(--green);margin-top:4px">⌘ ${escapeHtml(host.hostname)}.local</div>` : '';
-    const servicesLine = host.services?.length ? `<div class="host-mac" style="margin-top:4px">⚡ ${escapeHtml(host.services.join(' · '))}</div>` : '';
-
-    let tcpSection = '';
-    if (host.tcp_ports?.length) {
-        tcpSection = `
-            <div class="section-label">TCP Ports</div>
-            <table class="port-table">
-                <thead><tr><th>Port</th><th>Proto</th><th>Service</th><th>Banner</th></tr></thead>
-                <tbody>${host.tcp_ports.map(p => portRow(p.port, p.service, p.banner, 'TCP', p.cves)).join('')}</tbody>
-            </table>`;
-    } else {
-        tcpSection = `<div class="section-label">TCP Ports</div><div class="no-ports">No open TCP ports detected.</div>`;
-    }
-
-    let udpSection = '';
-    if (host.udp_ports?.length) {
-        udpSection = `
-            <div class="section-label" style="margin-top:8px">UDP Ports</div>
-            <table class="port-table">
-                <thead><tr><th>Port</th><th>Proto</th><th>Service</th><th>Banner</th></tr></thead>
-                <tbody>${host.udp_ports.map(p => portRow(p.port, p.service, null, 'UDP')).join('')}</tbody>
-            </table>`;
-    }
-
-    return `
-        <div class="host-card" style="animation-delay: ${i * 0.08}s">
-            <div class="host-header">
-                <div>
-                    <div class="host-ip">${escapeHtml(host.host)}</div>
-                    <div class="host-mac">${escapeHtml(host.mac || 'MAC unknown')}</div>
-                    ${hostnameLine}
-                    ${servicesLine}
-                </div>
-                <div class="badges">
-                    ${osBadge}
-                    ${deviceBadge}
-                    ${vendorBadge}
-                </div>
-            </div>
-            <div class="host-body">
-                ${tcpSection}
-                ${udpSection}
-            </div>
-        </div>`;
-}
-
-document.getElementById('hosts').innerHTML = SCAN_DATA.map((h, i) => hostCard(h, i)).join('');
-document.getElementById('footer-time').textContent = now();
+// ── Host details ──
+document.getElementById('hosts').innerHTML = hosts.map(({ h, level }) => {
+  const ports = [...list(h.tcp_ports).map((p) => ({ ...p, proto: 'tcp' })), ...list(h.udp_ports).map((p) => ({ ...p, proto: 'udp' }))];
+  const facts = [
+    ['MAC', h.mac && h.mac !== 'Unknown' ? `<span class="mono">${esc(h.mac)}</span>` : '—'],
+    ['Vendor', esc(vendorName(h) || '—')],
+    ['Device', esc(deviceName(h) || '—')],
+    ['OS guess', esc(known(h.os) || '—')],
+  ];
+  if (h.hostname) facts.push(['mDNS name', `<span class="mono">${esc(h.hostname)}.local</span>`]);
+  if (list(h.services).length) facts.push(['Advertises', esc(list(h.services).join(', '))]);
+  return `<section class="host">
+    <div class="host-head"><span class="ip">${esc(h.host)}</span>${riskHtml(level)}</div>
+    <dl class="facts">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
+    <h3>Open ports</h3>
+    ${ports.length ? `<table class="ports"><thead><tr><th>Port</th><th>Service</th><th>Banner</th><th>Vulnerabilities</th></tr></thead><tbody>
+      ${ports.map((p) => `<tr>
+        <td class="port">${esc(p.port)}/${p.proto}</td>
+        <td>${esc(known(p.service) || 'Unknown')}</td>
+        <td class="banner">${p.banner ? esc(p.banner) : '<span class="muted">No banner</span>'}</td>
+        <td>${list(p.cves).length ? `<ul class="cves">${list(p.cves).map(cveHtml).join('')}</ul>` : '<span class="muted">None matched</span>'}</td>
+      </tr>`).join('')}</tbody></table>` : '<p class="muted">No open ports found in the scanned range.</p>'}
+  </section>`;
+}).join('');
 </script>
 </body>
 </html>
