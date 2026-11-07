@@ -4,13 +4,18 @@ Run with: sudo python3 web_app.py
 Then open: http://localhost:8000
 """
 
+import contextlib
+import functools
+import ipaddress
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
 import uuid
 from datetime import datetime, timezone
+from urllib.parse import urlsplit
 
 from flask import (
     Flask,
@@ -30,8 +35,31 @@ app = Flask(__name__)
 DEMO_MODE = os.environ.get("DEMO_MODE", "0") == "1"
 
 HISTORY_FILE = "scan_history.json"
-_scan_lock   = threading.Lock()
-_active_scan = {"running": False, "output": [], "id": None}
+RESULTS_FILE = "scan_results.json"   # written by scanner_cli.py
+SCANNER_CLI  = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scanner_cli.py")
+
+# ── Network exposure ──────────────────────────────────────────────
+# The dashboard has no login, so by default it only listens on loopback:
+# nothing else on the network (or on a VPN adapter) can reach it.
+# Inside a container it must listen on all interfaces so Docker's port
+# mapping can reach it; the Dockerfile sets NETSCAN_HOST for that, and
+# docker-compose publishes the port on the host's 127.0.0.1 only.
+BIND_HOST = os.environ.get("NETSCAN_HOST", "127.0.0.1")
+PORT      = 8000
+
+# Host names the browser may use to reach the dashboard. Requests that
+# trigger scans with any other Host header are refused (DNS rebinding).
+ALLOWED_HOSTS = {
+    h.strip().lower()
+    for h in os.environ.get("NETSCAN_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    if h.strip()
+}
+
+# Largest network the dashboard will scan: /16 = 65,536 addresses.
+MIN_PREFIXLEN = 16
+
+_scan_lock  = threading.Lock()     # only one scan at a time
+_scan_state = {"proc": None}       # the running scanner subprocess, if any
 
 
 # ── History helpers ───────────────────────────────────────────────
@@ -764,9 +792,9 @@ body {
 <script>
 // ── Security: HTML escaping ──────────────────────────────────────
 // Scan data is UNTRUSTED: banners, hostnames and vendors are chosen by
-// whatever device was scanned, and history entries can be written by anyone
-// who can reach /history/save. Every value inserted with innerHTML must go
-// through escapeHtml() so the browser treats it as text, never as markup.
+// whatever device was scanned, and saved history files can be edited.
+// Every value inserted with innerHTML must go through escapeHtml() so the
+// browser treats it as text, never as markup.
 function escapeHtml(value) {
     return String(value ?? '')
         .replace(/&/g, '&amp;')    // must be first, or it would re-escape the others
@@ -942,7 +970,7 @@ function drawTopology(results) {
             .attr('font-family', "'Share Tech Mono', monospace")
             .attr('font-size', '9')
             .attr('fill', n.color)
-            .text(n.host.split('.').slice(-2).join('.'));
+            .text(String(n.id).split('.').slice(-2).join('.'));   // n.id is the IP; n.host is the whole host object
 
         // Device label below
         g.append('text')
@@ -1067,6 +1095,15 @@ function clearTerminal() {
 
 // ── Scan ──────────────────────────────────────────────────────────
 let scanning = false;
+let currentStream = null;   // the open EventSource while a scan runs
+
+function resetScanButton() {
+    scanning = false;
+    currentStream = null;
+    const btn = document.getElementById('scan-btn');
+    btn.textContent = '▶ Start Scan';
+    btn.classList.remove('running');
+}
 
 function startScan() {
     if (scanning) { stopScan(); return; }
@@ -1096,6 +1133,7 @@ function startScan() {
     const params = new URLSearchParams({ network, target, ports, udp, vuln, noApi });
 
     const es = new EventSource('/scan/stream?' + params);
+    currentStream = es;
 
     es.onmessage = e => {
         const data = JSON.parse(e.data);
@@ -1103,39 +1141,39 @@ function startScan() {
             termLine(data.text);
         } else if (data.type === 'done') {
             es.close();
-            scanning = false;
-            btn.textContent = '▶ Start Scan';
-            btn.classList.remove('running');
+            resetScanButton();
             termLine('// scan complete.');
             if (data.results) {
                 currentResults = data.results;
                 renderResults(data.results);
                 buildTopology(data.results);
                 showPage('results');
-                saveHistory(data.results, { network, target, ports, udp, vuln });
+                // History is saved by the server when the scan finishes.
             }
         } else if (data.type === 'error') {
             termLine('[!] ' + data.text);
             es.close();
-            scanning = false;
-            btn.textContent = '▶ Start Scan';
-            btn.classList.remove('running');
+            resetScanButton();
         }
     };
 
     es.onerror = () => {
+        // Connection refused or dropped (e.g. 403). Don't let EventSource
+        // silently reconnect and start another scan.
+        if (scanning) termLine('[!] Lost connection to the scanner.');
         es.close();
-        scanning = false;
-        btn.textContent = '▶ Start Scan';
-        btn.classList.remove('running');
+        resetScanButton();
     };
 }
 
 function stopScan() {
-    fetch('/scan/stop', { method: 'POST' });
-    scanning = false;
-    document.getElementById('scan-btn').textContent = '▶ Start Scan';
-    document.getElementById('scan-btn').classList.remove('running');
+    // Ask the server to kill the scanner process. The open stream then
+    // receives "Scan stopped." and resets the button.
+    termLine('// stopping scan...');
+    fetch('/scan/stop', { method: 'POST' }).catch(() => {
+        if (currentStream) currentStream.close();
+        resetScanButton();
+    });
 }
 
 // ── Render results ────────────────────────────────────────────────
@@ -1214,14 +1252,6 @@ function toggleHost(el) {
 }
 
 // ── History ───────────────────────────────────────────────────────
-function saveHistory(results, params) {
-    fetch('/history/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ results, params, ts: new Date().toISOString() })
-    });
-}
-
 let historyEntries = [];   // last /history response; items are loaded by index
 
 function loadHistory() {
@@ -1270,6 +1300,106 @@ function loadHistoryEntry(index) {
 </html>
 """
 
+# ── Input validation ──────────────────────────────────────────────
+
+class ScanRequestError(ValueError):
+    """Scan parameters from the browser are missing or invalid."""
+
+
+def build_scan_args(network, target, ports, udp=False, vuln=False, no_api=False):
+    """Turn untrusted scan parameters into scanner_cli.py arguments.
+
+    Parse, don't just check: every value is parsed into a real type
+    (IPv4Network / IPv4Address / int), and the argument list is built from
+    the *parsed* value, never from the raw string the browser sent. A value
+    like "-p" or "10.0.0.1; rm -rf ~" can't survive parsing, so it can never
+    reach the command line.
+    """
+    network = (network or "").strip()
+    target  = (target or "").strip()
+    ports   = (ports or "").strip() or "1-1000"
+
+    if bool(network) == bool(target):
+        raise ScanRequestError("Enter either a network range or a single target (not both).")
+
+    args = []
+    if network:
+        try:
+            net = ipaddress.IPv4Network(network, strict=False)
+        except ValueError:
+            raise ScanRequestError(f"Invalid network range: {network!r} (example: 192.168.1.0/24)") from None
+        if net.prefixlen < MIN_PREFIXLEN:
+            raise ScanRequestError(
+                f"Network /{net.prefixlen} is too large; use /{MIN_PREFIXLEN} or smaller."
+            )
+        args += ["-n", str(net)]
+    else:
+        try:
+            ip = ipaddress.IPv4Address(target)
+        except ValueError:
+            raise ScanRequestError(f"Invalid target IP address: {target!r} (example: 192.168.1.1)") from None
+        args += ["-t", str(ip)]
+
+    match = re.fullmatch(r"(\d{1,5})(?:-(\d{1,5}))?", ports)
+    if not match:
+        raise ScanRequestError(f"Invalid port range: {ports!r} (examples: 80 or 1-1000)")
+    start = int(match.group(1))
+    end   = int(match.group(2) or start)
+    if not 1 <= start <= end <= 65535:
+        raise ScanRequestError(f"Port range must be within 1-65535 and start <= end: {ports!r}")
+    args += ["-p", f"{start}-{end}"]
+
+    if udp:
+        args.append("--udp")
+    if vuln:
+        args.append("--vuln")
+    if no_api:
+        args.append("--no-api")
+    return args
+
+
+# ── Same-origin guard (CSRF + DNS rebinding) ──────────────────────
+
+def _request_is_same_origin():
+    """True only if this request came from the dashboard's own page.
+
+    1. Host check (DNS rebinding): a malicious site can point its own domain
+       at 127.0.0.1. The browser then thinks the request is same-origin, but
+       the Host header still says the attacker's domain, so we refuse it.
+    2. Sec-Fetch-Site (CSRF): modern browsers (Chrome 76+, Firefox 90+,
+       Safari 16.4+) tell the server where a request came from. Anything
+       other than our own page ("same-origin") or the user typing the URL
+       ("none") is refused, e.g. another website's <img src=".../scan/stream">.
+    3. Origin (CSRF, older browsers): when present, it must match our host.
+    """
+    host = (request.host or "").lower()
+    hostname = host.rsplit(":", 1)[0] if not host.endswith("]") else host
+    if hostname not in ALLOWED_HOSTS:
+        return False
+
+    fetch_site = request.headers.get("Sec-Fetch-Site")
+    if fetch_site is not None and fetch_site not in ("same-origin", "none"):
+        return False
+
+    origin = request.headers.get("Origin")
+    return not (origin is not None and urlsplit(origin).netloc.lower() != host)
+
+
+def same_origin_only(view):
+    """Decorator: refuse requests that didn't come from our own page."""
+    @functools.wraps(view)
+    def wrapper(*args, **kwargs):
+        if not _request_is_same_origin():
+            return jsonify({"error": "Cross-origin request refused."}), 403
+        return view(*args, **kwargs)
+    return wrapper
+
+
+def _sse(data):
+    """Format one Server-Sent Events message."""
+    return f"data: {json.dumps(data)}\n\n"
+
+
 # ── Routes ────────────────────────────────────────────────────────
 
 @app.route("/")
@@ -1278,6 +1408,7 @@ def index():
 
 
 @app.route("/scan/stream")
+@same_origin_only
 def scan_stream():
     if DEMO_MODE:
         return jsonify({
@@ -1285,63 +1416,89 @@ def scan_stream():
                      "Clone the repo and run locally with Docker to perform real scans."
         }), 403
 
-    network = request.args.get("network", "").strip()
-    target  = request.args.get("target", "").strip()
-    ports   = request.args.get("ports", "1-1000").strip()
-    udp     = request.args.get("udp") == "true"
-    vuln    = request.args.get("vuln") == "true"
-    no_api  = request.args.get("noApi") == "true"
+    udp    = request.args.get("udp") == "true"
+    vuln   = request.args.get("vuln") == "true"
+    no_api = request.args.get("noApi") == "true"
+    try:
+        args = build_scan_args(
+            request.args.get("network"), request.args.get("target"),
+            request.args.get("ports"), udp=udp, vuln=vuln, no_api=no_api,
+        )
+    except ScanRequestError as e:
+        # Shown in the dashboard terminal via textContent, so it can't inject HTML.
+        error_stream = iter([_sse({"type": "error", "text": str(e)})])
+        return Response(error_stream, mimetype="text/event-stream")
+
+    # Saved with the history entry: the validated values, not the raw input.
+    params = {
+        "network": args[1] if args[0] == "-n" else "",
+        "target":  args[1] if args[0] == "-t" else "",
+        "ports":   args[3],
+        "udp": udp, "vuln": vuln, "no_api": no_api,
+    }
+    # -u: unbuffered output, so lines stream to the browser as they happen.
+    cmd = [sys.executable, "-u", SCANNER_CLI, *args]
 
     def generate():
-        cmd = [sys.executable, "scanner_cli.py"]
-        if network:
-            cmd += ["-n", network]
-        elif target:
-            cmd += ["-t", target]
-        if ports:
-            cmd += ["-p", ports]
-        if udp:
-            cmd += ["--udp"]
-        if vuln:
-            cmd += ["--vuln"]
-        if no_api:
-            cmd += ["--no-api"]
+        # The lock is taken inside the generator so it's always released by
+        # the finally below, even if the browser disconnects mid-scan.
+        if not _scan_lock.acquire(blocking=False):
+            yield _sse({"type": "error", "text": "A scan is already running."})
+            return
 
-        def send(data):
-            return f"data: {json.dumps(data)}\n\n"
-
+        proc = None
         try:
-            proc = subprocess.Popen(
+            # Never show results left over from a previous scan.
+            with contextlib.suppress(FileNotFoundError):
+                os.remove(RESULTS_FILE)
+
+            # Every argument was rebuilt from a parsed IP/network/port value
+            # (see build_scan_args), and no shell is involved.
+            proc = subprocess.Popen(  # noqa: S603
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
-                bufsize=1
+                bufsize=1,
             )
-            _active_scan["running"] = True
-            _active_scan["output"]  = []
+            _scan_state["proc"] = proc
 
             for raw_line in proc.stdout:
                 line = raw_line.rstrip()
-                if not line:
-                    continue
-                _active_scan["output"].append(line)
-                yield send({"type": "line", "text": line})
+                if line:
+                    yield _sse({"type": "line", "text": line})
 
             proc.wait()
-            _active_scan["running"] = False
+            if proc.returncode != 0:
+                text = "Scan stopped." if proc.returncode < 0 else f"Scanner exited with code {proc.returncode}."
+                yield _sse({"type": "error", "text": text})
+                return
 
-            # Load scan results
             results = []
-            if os.path.exists("scan_results.json"):
-                with open("scan_results.json") as f:
+            if os.path.exists(RESULTS_FILE):
+                with open(RESULTS_FILE, encoding="utf-8") as f:
                     results = json.load(f)
 
-            yield send({"type": "done", "results": results})
+            # The server records history itself; the browser never writes it.
+            save_history({
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "params": params,
+                "results": results,
+            })
+            yield _sse({"type": "done", "results": results})
 
-        except Exception as e:
-            yield send({"type": "error", "text": str(e)})
-            _active_scan["running"] = False
+        except (OSError, ValueError) as e:
+            yield _sse({"type": "error", "text": f"Scan failed: {e}"})
+        finally:
+            # Runs on success, error, Stop, or browser disconnect.
+            if proc is not None and proc.poll() is None:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+            _scan_state["proc"] = None
+            _scan_lock.release()
 
     return Response(
         stream_with_context(generate()),
@@ -1354,23 +1511,20 @@ def scan_stream():
 
 
 @app.route("/scan/stop", methods=["POST"])
+@same_origin_only
 def scan_stop():
     if DEMO_MODE:
         return jsonify({"error": "Live scanning is disabled in demo mode"}), 403
-    _active_scan["running"] = False
-    return jsonify({"ok": True})
+    proc = _scan_state["proc"]
+    if proc is None or proc.poll() is not None:
+        return jsonify({"ok": True, "stopped": False})
+    proc.terminate()   # the stream sees the scanner exit and reports "Scan stopped."
+    return jsonify({"ok": True, "stopped": True})
 
 
 @app.route("/history")
 def get_history():
     return jsonify(load_history())
-
-
-@app.route("/history/save", methods=["POST"])
-def save_history_route():
-    entry = request.json
-    save_history(entry)
-    return jsonify({"ok": True})
 
 
 def seed_demo_history():
@@ -1449,7 +1603,10 @@ if __name__ == "__main__":
     print("  NetScan Web Dashboard")
     if DEMO_MODE:
         print("  🎓 DEMO MODE — live scanning disabled")
-    print("  Open → http://localhost:8000")
+    print(f"  Open → http://localhost:{PORT}")
+    if BIND_HOST not in ("127.0.0.1", "localhost", "::1"):
+        print(f"  ⚠  Listening on {BIND_HOST}: the dashboard has NO authentication.")
+        print("     Only do this inside a container whose port is published on 127.0.0.1.")
     print("─" * 50 + "\n")
     seed_demo_history()
-    app.run(host="0.0.0.0", port=8000, debug=False, threaded=True)
+    app.run(host=BIND_HOST, port=PORT, debug=False, threaded=True)

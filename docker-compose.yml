@@ -4,7 +4,9 @@ services:
     image: network-scanner:latest
     container_name: network-scanner
     ports:
-      - "8000:8000"
+      # Published on the host's loopback only: the dashboard has no login,
+      # so other machines on the network must not be able to reach it.
+      - "127.0.0.1:8000:8000"
 
     # Scapy needs raw socket access. Granting only what's needed
     # (NET_RAW + NET_ADMIN), never --privileged.

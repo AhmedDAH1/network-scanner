@@ -9,9 +9,3 @@ ignore = [
     "S110",
     "S112",
 ]
-
-[lint.per-file-ignores]
-# KNOWN VULNERABILITIES, fixed in Phase 1 Step 3 (web app hardening):
-#   S603: query-string input reaches the scanner command unvalidated
-#   S104: dashboard binds to all interfaces with no authentication
-"web_app.py" = ["S603", "S104"]

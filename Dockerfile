@@ -17,6 +17,11 @@ COPY . .
 # Web dashboard port
 EXPOSE 8000
 
+# Inside a container the app must listen on all interfaces, or Docker's port
+# mapping can't reach it. Outside a container it defaults to 127.0.0.1.
+# docker-compose.yml publishes the port on the host's loopback only.
+ENV NETSCAN_HOST=0.0.0.0
+
 # IMPORTANT: This container intentionally runs as root.
 # Scapy needs raw socket access (CAP_NET_RAW + CAP_NET_ADMIN) which on
 # Linux still requires root for full functionality. In docker-compose
