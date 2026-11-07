@@ -115,7 +115,7 @@ bugs that were found and fixed.
 
 ```bash
 pip install -r requirements-dev.txt
-python3 -m pytest      # 171 tests, about 7 seconds, no root or internet needed
+python3 -m pytest      # 172 tests, about 7 seconds, no root or internet needed
 ruff check .           # lint, including the Bandit security rules
 ```
 

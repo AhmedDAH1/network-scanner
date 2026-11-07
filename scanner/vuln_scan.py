@@ -35,6 +35,7 @@ BACKPORT_NOTE = ("Linux distributions often patch this without changing the "
                  "version number, so check the package's own advisories.")
 
 # ── Offline knowledge base ────────────────────────────────────────
+# Severities follow NVD's own (primary) CVSS score, the page each CVE links to.
 # "ranges": (first affected, first fixed). None means "no lower bound".
 # "versions": exact affected versions.
 KNOWN_VULNS = {
@@ -57,8 +58,8 @@ KNOWN_VULNS = {
          "desc": "Path traversal and remote code execution (incomplete fix for CVE-2021-41773)",
          "ranges": [("2.4.49", "2.4.51")],
          "note": "Needs the default 'Require all denied' protection removed; code execution also needs CGI enabled."},
-        {"id": "CVE-2021-41773", "severity": "HIGH",
-         "desc": "Path traversal and file disclosure",
+        {"id": "CVE-2021-41773", "severity": "CRITICAL",
+         "desc": "Path traversal and file disclosure; remote code execution if CGI is enabled",
          "ranges": [("2.4.49", "2.4.50")],
          "note": "Needs the default 'Require all denied' protection removed."},
     ],
@@ -160,12 +161,18 @@ def cpe_name(product, version):
     return f"cpe:2.3:a:{vendor_product}:{release}:{update}:*:*:*:*:*:*"
 
 
+def _primary(entries):
+    """NVD can list several scores for one CVE: its own ("Primary") and the
+    vendor's ("Secondary"). Use NVD's, so results match the linked NVD page."""
+    return next((e for e in entries if e.get("type") == "Primary"), entries[0])
+
+
 def _severity(metrics):
     for key in ("cvssMetricV31", "cvssMetricV30"):
         if metrics.get(key):
-            return metrics[key][0]["cvssData"].get("baseSeverity", "").upper()
+            return _primary(metrics[key])["cvssData"].get("baseSeverity", "").upper()
     if metrics.get("cvssMetricV2"):
-        score = metrics["cvssMetricV2"][0]["cvssData"].get("baseScore", 0)
+        score = _primary(metrics["cvssMetricV2"])["cvssData"].get("baseScore", 0)
         return "CRITICAL" if score >= 9 else "HIGH" if score >= 7 else "MEDIUM" if score >= 4 else "LOW"
     return ""
 

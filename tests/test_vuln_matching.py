@@ -126,8 +126,8 @@ def test_cves_match_only_affected_versions(product, version, expected):
 
 
 def test_most_severe_cve_comes_first():
-    cves, _ = lookup_cves("Apache httpd", "2.4.49", use_api=False)
-    assert [c["severity"] for c in cves] == ["CRITICAL", "HIGH"]
+    cves, _ = lookup_cves("OpenSSH", "3.9p1", use_api=False)
+    assert [c["severity"] for c in cves] == ["HIGH", "MEDIUM"]
 
 
 def test_a_port_without_a_version_gets_no_cves():
@@ -203,6 +203,17 @@ def test_nvd_response_is_parsed_and_ranked():
         ("CVE-2020-0002", "CRITICAL"), ("CVE-2020-0004", "HIGH"), ("CVE-2020-0001", "MEDIUM")]
     assert all(c["source"] == "nvd" for c in cves)
     assert len(cves[1]["desc"]) <= 161
+
+
+def test_nvd_own_score_wins_over_the_vendors():
+    # Found with a live lookup: NVD rates CVE-2021-41773 9.8 CRITICAL, the
+    # vendor's score is lower. The order of the two entries isn't guaranteed.
+    metrics = {"cvssMetricV31": [
+        {"type": "Secondary", "cvssData": {"baseSeverity": "HIGH"}},
+        {"type": "Primary", "cvssData": {"baseSeverity": "CRITICAL"}},
+    ]}
+    [cve] = parse_nvd_response({"vulnerabilities": [nvd_item("CVE-2021-41773", metrics)]}, "Apache httpd", "2.4.49")
+    assert cve["severity"] == "CRITICAL"
 
 
 def test_nvd_results_are_capped():

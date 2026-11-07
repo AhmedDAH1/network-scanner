@@ -187,8 +187,8 @@
             },
             {
               "id": "CVE-2021-41773",
-              "severity": "HIGH",
-              "desc": "Path traversal and file disclosure",
+              "severity": "CRITICAL",
+              "desc": "Path traversal and file disclosure; remote code execution if CGI is enabled",
               "note": "Needs the default 'Require all denied' protection removed.",
               "source": "offline"
             }
