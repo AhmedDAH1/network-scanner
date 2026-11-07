@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from colorama import Fore, init
 from tabulate import tabulate
 
+from scanner import __version__
 from scanner.device_detection import detect_device
 from scanner.fileutil import give_to_invoking_user, write_json_atomic
 from scanner.host_discovery import discover_hosts
@@ -114,10 +115,10 @@ def save_html(all_results, meta=None, path="scan_report.html"):
 # ──────────────────────────────────────────
 
 def print_banner():
-    print(Fore.CYAN + """
+    print(Fore.CYAN + f"""
 ###########################################
-#        NETWORK SCANNER v1.0            #
-#        Author: Ahmed Dahdouh           #
+#  NetScan {__version__:<31}#
+#  Author: Ahmed Dahdouh                  #
 ###########################################
 """)
 
@@ -128,7 +129,8 @@ def main():
     if sys.stdout.isatty():
         print_banner()
 
-    parser = argparse.ArgumentParser(description="Network Scanner v1.0")
+    parser = argparse.ArgumentParser(prog="netscan", description=f"NetScan {__version__}: network discovery, port scanning and CVE lookup")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
 
     parser.add_argument("-n", "--network", help="Scan network range (e.g. 192.168.1.0/24)")
     parser.add_argument("-t", "--target",  help="Scan single host")

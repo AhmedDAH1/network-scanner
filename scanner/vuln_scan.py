@@ -16,6 +16,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from scanner import __version__
+
 NVD_API    = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 MAX_CVES   = 3
 REQ_DELAY  = 0.6   # seconds between requests to respect rate limit
@@ -132,7 +134,7 @@ def _nvd_search(keyword, max_results=MAX_CVES):
         # so file:// or custom schemes can't reach urlopen.
         req = urllib.request.Request( # noqa: S310
             url,
-            headers={"User-Agent": "network-scanner/1.1 (educational use)"}
+            headers={"User-Agent": f"netscan/{__version__} (+https://github.com/AhmedDAH1/network-scanner)"}
         )
         with urllib.request.urlopen(req, timeout=8) as resp:  # noqa: S310
             data = json.loads(resp.read())

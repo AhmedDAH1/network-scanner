@@ -39,3 +39,6 @@ README.md
 LICENSE
 *.md
 data/
+*.egg-info/
+build/
+dist/

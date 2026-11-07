@@ -1,0 +1,116 @@
+# Changelog
+
+All notable changes to NetScan. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and from 2.0.0 the
+project uses [Semantic Versioning](https://semver.org/): MAJOR for breaking
+changes, MINOR for new features, PATCH for fixes.
+
+## [2.0.0] - 2026-11-07
+
+A security and quality release: the web dashboard was hardened against
+attacks from both websites and scanned devices, every fix is covered by
+tests, and the interface was redesigned.
+
+### Breaking changes
+- The dashboard listens on `127.0.0.1` only by default. Set
+  `NETSCAN_HOST=0.0.0.0` inside containers (the Dockerfile does this).
+- `POST /history/save` was removed. The server records scan history itself.
+- Runtime files (history, `scan_results.json`, `scan_report.html` from the
+  dashboard) now live in `data/` instead of the working directory.
+- The scan form has a single Target field that accepts an IP address or a
+  CIDR network.
+
+### Security
+- Fixed stored XSS: service banners, host names and vendors from scanned
+  devices are escaped everywhere in the dashboard and the HTML report,
+  including inside the report's `<script>` block.
+- Added a strict Content-Security-Policy (no inline scripts, handlers or
+  styles), plus `X-Content-Type-Options`, `X-Frame-Options` and
+  `Referrer-Policy` headers.
+- Scans can only be started or stopped from the dashboard's own page:
+  requests from other websites (CSRF) and DNS-rebinding attempts are refused.
+- Scan input is parsed with `ipaddress` before it reaches the scanner;
+  networks larger than /16, invalid ports and argument-injection attempts are
+  rejected.
+- Helper binaries (`dns-sd`, `ifconfig`, `ip`) are run from absolute paths,
+  never looked up through `PATH`; mDNS names that look like options are
+  ignored.
+- Docker Compose publishes the dashboard on the host's loopback only.
+
+### Added
+- Test suite (101 tests) covering input validation, web security, reports,
+  network parsing and file handling; CI runs lint and tests on every push.
+- `pyproject.toml`: `pip install -e .` provides `netscan` and `netscan-web`
+  commands; `netscan --version`.
+- `CHANGELOG.md`, and one version number shared by the CLI, dashboard and
+  NVD requests.
+
+### Changed
+- Redesigned dashboard and HTML report: findings sorted by risk, severity
+  meter, light and dark themes, network map drawn in SVG without d3, favicon.
+- Fonts and scripts are bundled, so the dashboard works offline and in
+  regions where Google Fonts is blocked. The report embeds its fonts.
+- The demo uses a realistic sample scan in the scanner's real output format.
+- Files written while running under `sudo` are handed back to the real user;
+  JSON files are written atomically and a damaged history file is backed up
+  instead of overwritten.
+
+### Fixed
+- mDNS device identification never worked on macOS (`select` was not
+  imported and the error was silently swallowed).
+- Interface detection always fell back to Scapy's default because of a
+  misplaced `check=False`.
+- The Stop button did not stop the scan; only one scan can now run at a time.
+- The topology map crashed after every scan, so the results page never opened
+  automatically.
+- Reloading a scan from history never worked.
+- The demo's sample data showed "Invalid Date", no IPs and `NaN` CVEs.
+- MAC addresses written with dashes or dots crashed the randomized-MAC check
+  and missed the vendor lookup.
+- Docker scan history was not persisted by the `./data` volume.
+- The HTML report showed the time it was opened instead of the scan time.
+
+## [1.1.0] - 2026-05-24
+
+Released after 1.3 under an inconsistent number; 2.0.0 restores ordering.
+
+### Added
+- Dockerfile (Python 3.10-slim) and docker-compose.yml with only the
+  `NET_RAW` and `NET_ADMIN` capabilities, never `--privileged`.
+- `DEMO_MODE` for the hosted portfolio demo; scanning endpoints return 403.
+- `SECURITY.md` with an ethical-use clause.
+
+### Fixed
+- The dashboard launched a non-existent `test.py` instead of `scanner_cli.py`.
+
+## [1.3] - 2026-04-04
+
+### Added
+- Flask web dashboard with live scan output (Server-Sent Events), scan
+  history and a theme toggle.
+
+## [1.2] - 2026-04-04
+
+### Added
+- Vulnerability lookup through the NVD API with an offline fallback table
+  (`--vuln`, `--no-api`).
+- mDNS/Bonjour device identification.
+
+## [1.1] - 2026-04-01
+
+### Added
+- UDP scanning, MAC vendor lookup and randomized-MAC detection.
+
+### Fixed
+- ARP scanning on macOS with an active VPN.
+
+## [1.0] - 2026-04-01
+
+### Added
+- Host discovery (ARP with ICMP fallback), TCP SYN scanning, service banners,
+  TTL-based OS guess, JSON and HTML reports.
+
+[2.0.0]: https://github.com/AhmedDAH1/network-scanner/compare/v1.1.0...v2.0.0
+[1.1.0]: https://github.com/AhmedDAH1/network-scanner/compare/v1.3...v1.1.0
+[1.3]: https://github.com/AhmedDAH1/network-scanner/compare/v1.0...v1.3
+[1.0]: https://github.com/AhmedDAH1/network-scanner/releases/tag/v1.0

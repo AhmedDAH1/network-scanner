@@ -1,48 +1,73 @@
 # Security Policy
 
-## Ethical Use
+## Ethical use
 
-This tool performs active network reconnaissance (host discovery, port scanning, service enumeration, vulnerability lookups). It is intended for:
+NetScan performs active network reconnaissance: host discovery, port scanning,
+service enumeration and vulnerability lookups. It is intended for:
 
-- Scanning networks you own
-- Authorized penetration testing engagements
-- Capture-the-flag exercises in isolated lab environments
-- Defensive security teams auditing their own infrastructure
+- networks you own
+- authorized penetration tests
+- capture-the-flag exercises and isolated labs
+- defensive teams auditing their own infrastructure
 
-**Unauthorized scanning of networks you do not own or have explicit written permission to test is illegal in most jurisdictions** (Computer Fraud and Abuse Act in the US, Computer Misuse Act in the UK, Article 303a StGB in Germany, etc.). The author assumes no responsibility for misuse.
+**Scanning networks without explicit permission is illegal in many
+jurisdictions** (for example under the Computer Fraud and Abuse Act in the US
+or the Computer Misuse Act in the UK). The author accepts no responsibility for
+misuse. If you can't answer "yes" to *"Do I have explicit authorization to scan
+this network?"*, don't run NetScan against it.
 
-If you cannot answer "yes" to *"Do I have explicit authorization to scan this network?"*, do not run this tool against it.
-
-## Supported Versions
+## Supported versions
 
 | Version | Supported |
 |---------|-----------|
-| 1.x     | ✅        |
-| < 1.0   | ❌        |
+| 2.x     | Yes       |
+| < 2.0   | No: 1.x contains the vulnerabilities fixed in 2.0.0 (stored XSS, CSRF, exposure on all interfaces) |
 
-## Reporting a Vulnerability
+## Reporting a vulnerability
 
-If you discover a security vulnerability in this project, please **do not** open a public GitHub issue. Instead, report it privately:
+Please **don't** open a public issue. Report privately instead:
 
-- Via [GitHub Security Advisories](https://github.com/AhmedDAH1/network-scanner/security/advisories), or
-- Via [LinkedIn](https://www.linkedin.com/in/ahmed-dahdouh)
+- through [GitHub Security Advisories](https://github.com/AhmedDAH1/network-scanner/security/advisories/new), or
+- through [LinkedIn](https://www.linkedin.com/in/ahmed-dahdouh)
 
-I will acknowledge receipt within 72 hours and coordinate a fix before any public disclosure.
+You'll get an acknowledgement within 72 hours, and the fix will be coordinated
+with you before anything is disclosed publicly.
 
-## Scope
+## Security model
 
-This is a learning project for a portfolio. It is **not intended for production penetration-testing engagements** without further hardening. Specifically:
+NetScan runs as root (raw sockets) and displays data written by the devices it
+scans, so it treats scanned devices, other websites, other machines on the
+network and all user input as untrusted. The defences are summarised in the
+[README](README.md#security-design) and covered by the test suite:
 
-- The web dashboard uses Flask's development server (not a production WSGI server)
-- The container runs as root because Scapy requires raw socket access; production deployments should use Linux capabilities (CAP_NET_RAW + CAP_NET_ADMIN) instead
-- No authentication on the dashboard — do not expose the local instance to untrusted networks
-- The deployed live demo at https://network-scanner-8ihy.onrender.com runs in `DEMO_MODE=1`, which disables live scanning entirely
+- untrusted values are HTML-escaped, and a strict Content-Security-Policy
+  blocks inline scripts as a second layer
+- scans can only be started from the dashboard's own page (CSRF), with a
+  `Host` allow-list against DNS rebinding
+- the dashboard listens on `127.0.0.1` by default, and Docker Compose
+  publishes it on the host's loopback only
+- scan input is parsed with `ipaddress`; commands are built without a shell,
+  and helper binaries run from absolute paths
+- the container gets only `NET_RAW` and `NET_ADMIN`, never `--privileged`
 
-## Out of Scope
+## Known limitations
 
-- The bundled sample scan results (visible in the demo deployment) — these are synthetic data, not real network discovery
-- The intentional root-in-container design choice, documented above
+This is a portfolio and learning project, not a production penetration-testing
+platform:
 
-## Credentials and Secrets
+- The dashboard has **no authentication**. Its protection is that it is only
+  reachable from your own machine. Don't expose it with `NETSCAN_HOST=0.0.0.0`
+  outside a container whose port is published on loopback.
+- It uses Flask's development server.
+- Processes run as root inside the container, because Scapy needs raw sockets.
+- CVE matching is by service, not yet by product version, so results can
+  include false positives.
 
-This project currently uses no external API keys. If future versions add CVE lookup APIs (NVD, VulnDB) or threat intelligence integrations, they will load keys from environment variables — never hardcoded.
+The public demo (https://network-scanner-8ihy.onrender.com) runs with
+`DEMO_MODE=1`: scanning is disabled and the data is a synthetic sample.
+
+## Credentials and secrets
+
+NetScan uses no API keys today. If future versions need them (for example an
+NVD API key for higher rate limits), they will be read from environment
+variables and never committed.

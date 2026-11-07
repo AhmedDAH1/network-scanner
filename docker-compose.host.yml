@@ -1,0 +1,17 @@
+# Linux only: let the container scan your real LAN.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.host.yml up
+#
+# With the default bridge network, host discovery only sees Docker's own
+# network. Host networking puts the container directly on your machine's
+# network interfaces instead. (Docker Desktop on macOS/Windows runs containers
+# in a VM, so this doesn't reach your Wi-Fi there; run NetScan locally.)
+services:
+  scanner:
+    network_mode: host
+    ports: !reset []        # port mapping doesn't apply with host networking
+    environment:
+      # With host networking there is no port mapping to hide behind, so the
+      # app itself must listen on loopback only. Otherwise anyone on your
+      # network could open the dashboard.
+      NETSCAN_HOST: 127.0.0.1

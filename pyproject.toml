@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "netscan"
+description = "Network discovery, port scanning, device identification and CVE lookup, with a web dashboard"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Ahmed Dahdouh" }]
+requires-python = ">=3.10"
+keywords = ["network-scanner", "port-scanner", "security", "scapy", "cve"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Security",
+    "Topic :: System :: Networking :: Monitoring",
+]
+# Read from other files so there is only one place to change each of them.
+dynamic = ["version", "dependencies"]
+
+[project.urls]
+Homepage = "https://github.com/AhmedDAH1/network-scanner"
+Demo = "https://network-scanner-8ihy.onrender.com"
+Changelog = "https://github.com/AhmedDAH1/network-scanner/blob/main/CHANGELOG.md"
+
+[project.scripts]
+netscan = "scanner_cli:main"        # the command-line scanner
+netscan-web = "web_app:main"        # the web dashboard
+
+[tool.setuptools]
+packages = ["scanner"]
+py-modules = ["scanner_cli", "web_app"]
+
+[tool.setuptools.dynamic]
+version = { attr = "scanner.__version__" }
+dependencies = { file = ["requirements.txt"] }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+# -ra: list skipped/failed tests at the end. --strict-markers: typos in markers are errors.
+addopts = "-ra --strict-markers"

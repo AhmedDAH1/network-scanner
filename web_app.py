@@ -26,6 +26,7 @@ from flask import (
     stream_with_context,
 )
 
+from scanner import __version__
 from scanner.fileutil import ensure_dir, write_json_atomic
 
 app = Flask(__name__)
@@ -36,7 +37,7 @@ app = Flask(__name__)
 # get full scanning functionality.
 DEMO_MODE = os.environ.get("DEMO_MODE", "0") == "1"
 
-APP_VERSION = "1.3"
+APP_VERSION = __version__
 
 # ── Files ───────────────────────────────────────────────────────
 # All runtime data lives in one folder (default: ./data next to this file),
@@ -388,7 +389,7 @@ def seed_demo_history():
     })
 
 
-if __name__ == "__main__":
+def main():
     print("\n" + "─" * 50)
     print("  NetScan Web Dashboard")
     if DEMO_MODE:
@@ -402,3 +403,7 @@ if __name__ == "__main__":
     ensure_dir(DATA_DIR)
     seed_demo_history()
     app.run(host=BIND_HOST, port=PORT, debug=False, threaded=True)
+
+
+if __name__ == "__main__":
+    main()

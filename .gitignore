@@ -9,3 +9,8 @@ scan_report.html
 scan_history.json
 *.log
 data/
+
+# Python packaging build output
+*.egg-info/
+build/
+dist/
