@@ -9,3 +9,8 @@ ignore = [
     "S110",
     "S112",
 ]
+
+[lint.per-file-ignores]
+# pytest checks results with plain `assert`. In application code S101 is a
+# real bug (python -O deletes asserts), so it stays on everywhere else.
+"tests/**" = ["S101"]

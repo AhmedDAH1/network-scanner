@@ -1,0 +1,5 @@
+# Everything needed to develop and test the project.
+# Install with:  pip install -r requirements-dev.txt
+-r requirements.txt
+pytest==9.0.2
+ruff
