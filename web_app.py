@@ -762,6 +762,20 @@ body {
 </div>
 
 <script>
+// ── Security: HTML escaping ──────────────────────────────────────
+// Scan data is UNTRUSTED: banners, hostnames and vendors are chosen by
+// whatever device was scanned, and history entries can be written by anyone
+// who can reach /history/save. Every value inserted with innerHTML must go
+// through escapeHtml() so the browser treats it as text, never as markup.
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')    // must be first, or it would re-escape the others
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')   // stops breaking out of attr="..."
+        .replace(/'/g, '&#39;');   // stops breaking out of attr='...'
+}
+
 // ── Topology Map ─────────────────────────────────────────────────
 let topoData = null;
 
@@ -951,17 +965,17 @@ function showNodeDetail(host) {
     (host.tcp_ports || []).forEach(p => {
         const worst = p.cves?.[0];
         portsHtml += `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);">
-            <span style="color:var(--accent)">${p.port}</span>
+            <span style="color:var(--accent)">${escapeHtml(p.port)}</span>
             <span style="color:#00ff88">TCP</span>
-            <span>${p.service}</span>
-            ${worst ? `<span class="sev-${worst.severity}" style="font-size:10px;">${worst.severity}</span>` : '<span></span>'}
+            <span>${escapeHtml(p.service)}</span>
+            ${worst ? `<span class="sev-${escapeHtml(worst.severity)}" style="font-size:10px;">${escapeHtml(worst.severity)}</span>` : '<span></span>'}
         </div>`;
     });
     (host.udp_ports || []).forEach(p => {
         portsHtml += `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);">
-            <span style="color:var(--accent)">${p.port}</span>
+            <span style="color:var(--accent)">${escapeHtml(p.port)}</span>
             <span style="color:#ffcc00">UDP</span>
-            <span>${p.service}</span>
+            <span>${escapeHtml(p.service)}</span>
             <span></span>
         </div>`;
     });
@@ -971,18 +985,18 @@ function showNodeDetail(host) {
         (p.cves || []).forEach(c => {
             cvesHtml += `<div style="padding:5px 0;border-bottom:1px solid var(--border);">
                 <div style="display:flex;gap:8px;align-items:center;">
-                    <span style="color:var(--accent);font-size:11px;">${c.id}</span>
-                    <span class="sev-${c.severity}" style="font-size:10px;">${c.severity}</span>
+                    <span style="color:var(--accent);font-size:11px;">${escapeHtml(c.id)}</span>
+                    <span class="sev-${escapeHtml(c.severity)}" style="font-size:10px;">${escapeHtml(c.severity)}</span>
                 </div>
-                <div style="color:var(--text-dim);font-size:10px;margin-top:2px;">${c.desc}</div>
+                <div style="color:var(--text-dim);font-size:10px;margin-top:2px;">${escapeHtml(c.desc)}</div>
             </div>`;
         });
     });
 
     document.getElementById('topo-detail').innerHTML = `
         <div style="border-left:3px solid ${color};padding-left:12px;margin-bottom:16px;">
-            <div style="font-size:16px;color:var(--text);font-weight:700;">${host.host}</div>
-            <div style="color:var(--text-dim);margin-top:4px;">${host.mac || 'MAC unknown'}</div>
+            <div style="font-size:16px;color:var(--text);font-weight:700;">${escapeHtml(host.host)}</div>
+            <div style="color:var(--text-dim);margin-top:4px;">${escapeHtml(host.mac || 'MAC unknown')}</div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
             <div style="background:var(--bg3);padding:10px;text-align:center;">
@@ -996,9 +1010,9 @@ function showNodeDetail(host) {
         </div>
         <div style="margin-bottom:4px;color:var(--text-dim);font-size:9px;letter-spacing:2px;text-transform:uppercase;">Info</div>
         <div style="background:var(--bg3);padding:10px;margin-bottom:16px;line-height:2;">
-            <div><span style="color:var(--text-dim)">OS</span> &nbsp; ${host.os || '—'}</div>
-            <div><span style="color:var(--text-dim)">Device</span> &nbsp; ${host.device || '—'}</div>
-            <div><span style="color:var(--text-dim)">Vendor</span> &nbsp; ${host.vendor || '—'}</div>
+            <div><span style="color:var(--text-dim)">OS</span> &nbsp; ${escapeHtml(host.os || '—')}</div>
+            <div><span style="color:var(--text-dim)">Device</span> &nbsp; ${escapeHtml(host.device || '—')}</div>
+            <div><span style="color:var(--text-dim)">Vendor</span> &nbsp; ${escapeHtml(host.vendor || '—')}</div>
         </div>
         ${portsHtml ? `<div style="margin-bottom:4px;color:var(--text-dim);font-size:9px;letter-spacing:2px;text-transform:uppercase;">Ports</div><div style="margin-bottom:16px;">${portsHtml}</div>` : ''}
         ${cvesHtml ? `<div style="margin-bottom:4px;color:var(--text-dim);font-size:9px;letter-spacing:2px;text-transform:uppercase;">CVEs</div><div>${cvesHtml}</div>` : ''}
@@ -1144,30 +1158,30 @@ function renderResults(results) {
         const vBadge = rand
             ? `<span class="badge badge-rand">Privacy MAC</span>`
             : host.vendor && host.vendor !== 'Unknown'
-                ? `<span class="badge badge-vend">${host.vendor}</span>` : '';
-        const osBadge  = host.os && host.os !== 'Unknown' ? `<span class="badge badge-os">${host.os}</span>` : '';
-        const devBadge = host.device && host.device !== 'Unknown' ? `<span class="badge badge-dev">${host.device}</span>` : '';
+                ? `<span class="badge badge-vend">${escapeHtml(host.vendor)}</span>` : '';
+        const osBadge  = host.os && host.os !== 'Unknown' ? `<span class="badge badge-os">${escapeHtml(host.os)}</span>` : '';
+        const devBadge = host.device && host.device !== 'Unknown' ? `<span class="badge badge-dev">${escapeHtml(host.device)}</span>` : '';
 
         let tcpRows = '';
         (host.tcp_ports || []).forEach(p => {
             let cveHtml = '';
             (p.cves || []).forEach(c => {
-                cveHtml += `<div class="cve-row"><span class="cve-id">${c.id}</span><span class="sev-${c.severity}">${c.severity}</span><span class="cve-desc">${c.desc}</span></div>`;
+                cveHtml += `<div class="cve-row"><span class="cve-id">${escapeHtml(c.id)}</span><span class="sev-${escapeHtml(c.severity)}">${escapeHtml(c.severity)}</span><span class="cve-desc">${escapeHtml(c.desc)}</span></div>`;
             });
             tcpRows += `<tr>
-                <td><span class="port-num">${p.port}</span></td>
+                <td><span class="port-num">${escapeHtml(p.port)}</span></td>
                 <td><span class="proto-tcp">TCP</span></td>
-                <td>${p.service}</td>
-                <td>${p.banner || '—'}<div class="cve-list">${cveHtml}</div></td>
+                <td>${escapeHtml(p.service)}</td>
+                <td>${escapeHtml(p.banner || '—')}<div class="cve-list">${cveHtml}</div></td>
             </tr>`;
         });
 
         let udpRows = '';
         (host.udp_ports || []).forEach(p => {
             udpRows += `<tr>
-                <td><span class="port-num">${p.port}</span></td>
+                <td><span class="port-num">${escapeHtml(p.port)}</span></td>
                 <td><span class="proto-udp">UDP</span></td>
-                <td>${p.service}</td><td>—</td>
+                <td>${escapeHtml(p.service)}</td><td>—</td>
             </tr>`;
         });
 
@@ -1177,8 +1191,8 @@ function renderResults(results) {
         <div class="host-card" style="animation-delay:${i*0.06}s">
             <div class="host-head" onclick="toggleHost(this)">
                 <div>
-                    <div class="host-ip">${host.host}</div>
-                    <div class="host-meta">${host.mac || ''}</div>
+                    <div class="host-ip">${escapeHtml(host.host)}</div>
+                    <div class="host-meta">${escapeHtml(host.mac || '')}</div>
                 </div>
                 <div class="badges">${osBadge}${devBadge}${vBadge}</div>
             </div>
@@ -1208,30 +1222,34 @@ function saveHistory(results, params) {
     });
 }
 
+let historyEntries = [];   // last /history response; items are loaded by index
+
 function loadHistory() {
     fetch('/history')
         .then(r => r.json())
         .then(data => {
-            if (!data.length) {
+            historyEntries = Array.isArray(data) ? data : [];
+            if (!historyEntries.length) {
                 document.getElementById('history-content').innerHTML = `
                     <div class="empty-state"><div class="icon">◷</div>No scans in history yet.</div>`;
                 return;
             }
             let html = '';
-            data.forEach(entry => {
+            historyEntries.forEach((entry, i) => {
                 const d = new Date(entry.ts);
                 const hosts = entry.results?.length || 0;
                 const ports = entry.results?.reduce((n, h) => n + (h.tcp_ports?.length || 0), 0) || 0;
                 const target = entry.params?.network || entry.params?.target || '—';
+                // onclick only ever receives a number (the index), never scan data.
                 html += `
-                <div class="history-item" onclick="loadHistoryEntry(${JSON.stringify(JSON.stringify(entry))})">
+                <div class="history-item" onclick="loadHistoryEntry(${i})">
                     <div>
-                        <div class="history-target">${target}</div>
-                        <div class="history-meta">${d.toLocaleString()}</div>
+                        <div class="history-target">${escapeHtml(target)}</div>
+                        <div class="history-meta">${escapeHtml(d.toLocaleString())}</div>
                     </div>
                     <div class="history-badges">
-                        <span class="pill">${hosts} hosts</span>
-                        <span class="pill pill-accent">${ports} ports</span>
+                        <span class="pill">${escapeHtml(hosts)} hosts</span>
+                        <span class="pill pill-accent">${escapeHtml(ports)} ports</span>
                     </div>
                 </div>`;
             });
@@ -1239,8 +1257,9 @@ function loadHistory() {
         });
 }
 
-function loadHistoryEntry(entryStr) {
-    const entry = JSON.parse(entryStr);
+function loadHistoryEntry(index) {
+    const entry = historyEntries[index];
+    if (!entry) return;
     currentResults = entry.results;
     renderResults(entry.results);
     buildTopology(entry.results);

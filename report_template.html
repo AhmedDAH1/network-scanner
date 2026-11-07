@@ -369,6 +369,17 @@
 const SCAN_DATA = __SCAN_DATA__;
 
 // ── Helpers ──────────────────────────────────────────────────────
+// Scan data is UNTRUSTED (banners, hostnames, vendors come from the scanned
+// devices). Escape every value before inserting it with innerHTML.
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 function countPorts(hosts) {
     return hosts.reduce((n, h) =>
         n + (h.tcp_ports?.length || 0) + (h.udp_ports?.length || 0), 0);
@@ -407,16 +418,16 @@ document.getElementById('summary').innerHTML = `
 
 // ── Host cards ────────────────────────────────────────────────────
 function severityClass(sev) {
-    return 'sev-' + (sev || 'UNKNOWN').toUpperCase();
+    return 'sev-' + escapeHtml(String(sev || 'UNKNOWN').toUpperCase());
 }
 
 function cveRows(cves) {
     if (!cves || cves.length === 0) return '';
     const rows = cves.map(c => `
         <tr>
-            <td class="cve-id">${c.id}</td>
-            <td class="${severityClass(c.severity)}">${c.severity}</td>
-            <td class="cve-desc">${c.desc}</td>
+            <td class="cve-id">${escapeHtml(c.id)}</td>
+            <td class="${severityClass(c.severity)}">${escapeHtml(c.severity)}</td>
+            <td class="cve-desc">${escapeHtml(c.desc)}</td>
         </tr>`).join('');
     return `<table class="cve-table">${rows}</table>`;
 }
@@ -426,11 +437,11 @@ function portRow(port, service, banner, proto, cves) {
     const cveSection = cveRows(cves);
     return `
         <tr>
-            <td><span class="port-num">${port}</span></td>
+            <td><span class="port-num">${escapeHtml(port)}</span></td>
             <td><span class="${protoClass}">${proto}</span></td>
-            <td><span class="service-name">${service}</span></td>
+            <td><span class="service-name">${escapeHtml(service)}</span></td>
             <td>
-                <span class="banner-text">${banner || '—'}</span>
+                <span class="banner-text">${escapeHtml(banner || '—')}</span>
                 ${cveSection}
             </td>
         </tr>`;
@@ -441,13 +452,13 @@ function hostCard(host, i) {
     const vendorBadge = rand
         ? `<span class="badge badge-rand">Privacy MAC</span>`
         : host.vendor && host.vendor !== 'Unknown'
-            ? `<span class="badge badge-vend">${host.vendor}</span>`
+            ? `<span class="badge badge-vend">${escapeHtml(host.vendor)}</span>`
             : '';
 
-    const osBadge     = host.os     && host.os     !== 'Unknown' ? `<span class="badge badge-os">${host.os}</span>` : '';
-    const deviceBadge = host.device && host.device !== 'Unknown' ? `<span class="badge badge-dev">${host.device.replace(' (Randomized MAC (Privacy Mode))', '')}</span>` : '';
-    const hostnameLine = host.hostname ? `<div class="host-mac" style="color:var(--green);margin-top:4px">⌘ ${host.hostname}.local</div>` : '';
-    const servicesLine = host.services?.length ? `<div class="host-mac" style="margin-top:4px">⚡ ${host.services.join(' · ')}</div>` : '';
+    const osBadge     = host.os     && host.os     !== 'Unknown' ? `<span class="badge badge-os">${escapeHtml(host.os)}</span>` : '';
+    const deviceBadge = host.device && host.device !== 'Unknown' ? `<span class="badge badge-dev">${escapeHtml(host.device.replace(' (Randomized MAC (Privacy Mode))', ''))}</span>` : '';
+    const hostnameLine = host.hostname ? `<div class="host-mac" style="color:var(--green);margin-top:4px">⌘ ${escapeHtml(host.hostname)}.local</div>` : '';
+    const servicesLine = host.services?.length ? `<div class="host-mac" style="margin-top:4px">⚡ ${escapeHtml(host.services.join(' · '))}</div>` : '';
 
     let tcpSection = '';
     if (host.tcp_ports?.length) {
@@ -475,8 +486,8 @@ function hostCard(host, i) {
         <div class="host-card" style="animation-delay: ${i * 0.08}s">
             <div class="host-header">
                 <div>
-                    <div class="host-ip">${host.host}</div>
-                    <div class="host-mac">${host.mac || 'MAC unknown'}</div>
+                    <div class="host-ip">${escapeHtml(host.host)}</div>
+                    <div class="host-mac">${escapeHtml(host.mac || 'MAC unknown')}</div>
                     ${hostnameLine}
                     ${servicesLine}
                 </div>

@@ -29,23 +29,37 @@ def save_json(all_results, path="scan_results.json"):
     print(f"\n{Fore.GREEN}[+] JSON report saved → {path}")
 
 
-def save_html(all_results, path="scan_report.html"):
-    import json as _json
+def json_for_script_tag(data):
+    """Serialize data as JSON that is safe to embed inside a <script> tag.
 
+    json.dumps alone is NOT enough: a banner containing "</script>" would end
+    the script block early and let the rest of the banner run as HTML. JSON
+    allows \\uXXXX escapes, so we replace <, > and & with them. The browser's
+    JSON/JS parser turns them back into the original characters, but the HTML
+    parser never sees a literal "<", so it can't find a closing tag.
+    """
+    return (
+        json.dumps(data, indent=2)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+    )
+
+
+def save_html(all_results, path="scan_report.html"):
     # Load the HTML template
     template_path = os.path.join(os.path.dirname(__file__), "report_template.html")
     try:
-        with open(template_path) as f:
+        with open(template_path, encoding="utf-8") as f:
             template = f.read()
     except FileNotFoundError:
         print(f"{Fore.RED}[-] report_template.html not found — skipping HTML report.")
         return
 
-    # Inject scan data into the template
-    data_json = _json.dumps(all_results, indent=2)
-    html = template.replace("__SCAN_DATA__", data_json)
+    # Inject scan data into the template (escaped for a <script> context)
+    html = template.replace("__SCAN_DATA__", json_for_script_tag(all_results))
 
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write(html)
     print(f"{Fore.GREEN}[+] HTML report saved → {path}")
 
