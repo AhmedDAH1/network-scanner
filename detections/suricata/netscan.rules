@@ -1,0 +1,21 @@
+# NetScan detections for Suricata 7
+# https://github.com/AhmedDAH1/network-scanner/tree/main/detections
+#
+# Tested against real NetScan traffic and a benign baseline; see TESTING.md.
+# SIDs 1000001-1000099 are in the range reserved for local rules.
+
+# 1. Network fingerprint (Pyramid of Pain: tool behaviour on the wire)
+# NetScan builds probes with Scapy's defaults: source port 20, sequence
+# number 0, window 8192 and no TCP options (a 20-byte TCP header). An
+# operating system's own SYNs use a random source port and sequence number
+# and carry options (MSS, SACK, timestamps, window scale), so all four
+# together don't occur in normal traffic. Port 20 alone would fire on
+# active-mode FTP, which legitimately connects from port 20.
+# One alert per source per minute instead of one per probed port.
+alert tcp any 20 -> any any (msg:"NETSCAN Scapy-default TCP SYN probe (sport 20, seq 0, win 8192, no options)"; flow:stateless; flags:S; seq:0; window:8192; tcp.hdr; bsize:20; threshold:type limit, track by_src, count 1, seconds 60; classtype:attempted-recon; reference:url,github.com/AhmedDAH1/network-scanner/tree/main/detections; metadata:mitre_tactic_id TA0007, mitre_tactic_name Discovery, mitre_technique_id T1046, mitre_technique_name Network_Service_Discovery, created_at 2026_11_07; sid:1000001; rev:1;)
+
+# 2. Tool artifact (Pyramid of Pain: tool string, trivial to change)
+# NetScan sends a HEAD request with User-Agent "netscan/<version>" to read
+# a web server's Server header. Precise, but one edit evades it, so it
+# attributes the tool rather than detecting scanning in general.
+alert http any any -> any any (msg:"NETSCAN HTTP service probe (User-Agent netscan/)"; flow:established,to_server; http.user_agent; content:"netscan/"; startswith; classtype:attempted-recon; reference:url,github.com/AhmedDAH1/network-scanner/tree/main/detections; metadata:mitre_tactic_id TA0007, mitre_tactic_name Discovery, mitre_technique_id T1046, mitre_technique_name Network_Service_Discovery, created_at 2026_11_07; sid:1000002; rev:1;)

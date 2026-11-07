@@ -2,4 +2,9 @@
 # Install with:  pip install -r requirements-dev.txt
 -r requirements.txt
 pytest==9.0.2
+# Detection rules (detections/): parse, convert and execute Sigma rules
+pySigma==1.5.1
+pySigma-backend-sqlite==2.0.0
+pySigma-backend-splunk==2.1.0
+pySigma-backend-elasticsearch==2.1.1
 ruff

@@ -1,0 +1,25 @@
+title: NetScan Service Probe in Web Server Logs
+id: 8c16f845-8bc6-46e7-9903-b56987a94406
+status: experimental
+description: |
+  Detects HTTP requests whose User-Agent starts with "netscan/". NetScan sends
+  a HEAD request with this User-Agent to read the Server header before
+  matching the web server against known CVEs, so this means the host was
+  actively scanned by NetScan. The string is trivial to change: treat this as
+  tool attribution and rely on the network rules for general scan detection.
+references:
+  - https://github.com/AhmedDAH1/network-scanner/tree/main/detections
+author: Ahmed Dahdouh
+date: 2026-11-07
+tags:
+  - attack.discovery
+  - attack.t1046
+logsource:
+  category: webserver
+detection:
+  selection:
+    cs-user-agent|startswith: 'netscan/'
+  condition: selection
+falsepositives:
+  - Authorised scans with NetScan, for example by your own security team
+level: medium

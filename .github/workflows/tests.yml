@@ -25,7 +25,8 @@ jobs:
         run: ruff check .
 
   test:
-    runs-on: ubuntu-latest
+    # Pinned so the Suricata version from apt is known (7.0.x on 24.04).
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -36,6 +37,9 @@ jobs:
           python-version: '3.10'
           cache: pip
           cache-dependency-path: requirements-dev.txt
+
+      - name: Install Suricata (for the detection rule tests)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends suricata
 
       - name: Install dependencies
         run: pip install -r requirements-dev.txt   # includes requirements.txt

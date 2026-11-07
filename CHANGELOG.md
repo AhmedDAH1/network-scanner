@@ -5,6 +5,25 @@ All notable changes to NetScan. The format follows
 project uses [Semantic Versioning](https://semver.org/): MAJOR for breaking
 changes, MINOR for new features, PATCH for fixes.
 
+## [2.2.0] - 2026-11-07
+
+Detections for NetScan itself: rules that catch this scanner from the
+defender's side, tested against its real traffic.
+
+### Added
+- `detections/`: two Suricata rules (Scapy's default SYN fingerprint and the
+  `netscan/` User-Agent) and two Sigma rules (the User-Agent in web server
+  logs, and a tool-independent vertical port scan correlation over Zeek
+  `conn` logs).
+- Test captures: a real NetScan scan and a benign baseline with traffic
+  chosen to trip naive rules (for example active-mode FTP from port 20),
+  plus a script that re-records both in an isolated network namespace.
+- Tests that run Suricata on both captures, execute the Sigma rules,
+  check the port-scan threshold at 24 and 25 ports, and convert the rules
+  to Splunk and Elasticsearch queries. CI installs Suricata.
+- `detections/TESTING.md` with the method, results, the rule variants that
+  were rejected and why, and limitations.
+
 ## [2.1.1] - 2026-11-07
 
 ### Fixed
@@ -151,6 +170,7 @@ Released after 1.3 under an inconsistent number; 2.0.0 restores ordering.
 - Host discovery (ARP with ICMP fallback), TCP SYN scanning, service banners,
   TTL-based OS guess, JSON and HTML reports.
 
+[2.2.0]: https://github.com/AhmedDAH1/network-scanner/compare/v2.1.1...v2.2.0
 [2.1.1]: https://github.com/AhmedDAH1/network-scanner/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/AhmedDAH1/network-scanner/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/AhmedDAH1/network-scanner/compare/v1.1.0...v2.0.0

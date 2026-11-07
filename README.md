@@ -35,6 +35,8 @@ network.
   email or print.
 - **Web dashboard:** live scan output, findings sorted by risk, a network map,
   scan history, and light and dark themes.
+- **Detections for itself:** Suricata and Sigma rules that catch NetScan's own
+  scans, tested against recorded traffic in CI ([below](#detecting-netscan)).
 
 ## Quick start
 
@@ -111,15 +113,35 @@ Each defence has tests that fail if it's removed. The
 [2.0.0 changelog](CHANGELOG.md#200---2026-11-07) lists the vulnerabilities and
 bugs that were found and fixed.
 
+## Detecting NetScan
+
+Building a scanner is half the picture; the other half is catching one.
+[`detections/`](detections/) has rules that detect this scanner from the
+defender's side, at three levels of the Pyramid of Pain:
+
+| Layer | Rule | Matches |
+|---|---|---|
+| Tool artifact | Suricata, Sigma (web server logs) | The `netscan/<version>` User-Agent of the HTTP probe |
+| Network fingerprint | Suricata | Scapy's default SYN: source port 20, sequence 0, window 8192, no TCP options |
+| Behaviour | Sigma correlation (Zeek `conn`) | 25+ ports rejected or unanswered on one host within a minute, from any tool |
+
+Each rule fires on a real recorded NetScan scan and stays silent on a benign
+capture built to trip it (active-mode FTP also sends SYNs from port 20). CI
+runs Suricata on both captures, executes the Sigma rules and checks they still
+convert to Splunk and Elasticsearch queries. Results, the rule variants that
+were rejected and why, and the limitations are in
+[detections/TESTING.md](detections/TESTING.md).
+
 ## Testing
 
 ```bash
 pip install -r requirements-dev.txt
-python3 -m pytest      # 172 tests, about 7 seconds, no root or internet needed
+python3 -m pytest      # 184 tests, about 8 seconds, no root or internet needed
 ruff check .           # lint, including the Bandit security rules
 ```
 
-CI runs both on every push. To check that the tests catch real problems, ten
+The Suricata tests are skipped if Suricata isn't installed; CI installs it
+and runs everything on every push. To check that the tests catch real problems, ten
 bugs this project actually had were put back one at a time; each one failed a
 test named after it.
 
@@ -184,6 +206,7 @@ network-scanner/
 │   ├── vuln_scan.py        CVE lookup (NVD API + offline table)
 │   ├── fileutil.py         Atomic writes, sudo-safe file ownership
 │   └── port_scanner.py     TCP connect scan (not yet used by the CLI)
+├── detections/             Suricata and Sigma rules that detect NetScan, with test captures
 ├── tests/                  pytest suite
 ├── demo/sample_scan.json   Sample data for the live demo
 ├── Dockerfile, docker-compose.yml, docker-compose.host.yml

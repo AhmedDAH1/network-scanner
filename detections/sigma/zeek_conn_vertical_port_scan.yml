@@ -1,0 +1,52 @@
+title: Zeek Connection Rejected or Unanswered
+id: b191cbca-6a24-480b-8f19-f942f5956ae7
+name: zeek_conn_rejected_or_unanswered
+status: experimental
+description: |
+  TCP connection attempts that the target rejected (REJ) or never answered
+  (S0). Common on its own; used by the vertical port scan correlation below.
+author: Ahmed Dahdouh
+date: 2026-11-07
+logsource:
+  product: zeek
+  service: conn
+detection:
+  selection:
+    proto: tcp
+    conn_state:
+      - S0
+      - REJ
+  condition: selection
+level: informational
+---
+title: Vertical Port Scan From One Source (Zeek)
+id: 4baac279-b409-457a-9c52-ae5aba631807
+status: experimental
+description: |
+  One source made rejected or unanswered TCP connection attempts to 25 or
+  more distinct ports on the same host within one minute. Most ports on a
+  host are closed, so a port scan produces exactly this pattern whatever tool
+  is used. It still fires if a scanner changes its User-Agent and TCP
+  fingerprint, which the NetScan-specific Suricata rules depend on.
+references:
+  - https://github.com/AhmedDAH1/network-scanner/tree/main/detections
+author: Ahmed Dahdouh
+date: 2026-11-07
+tags:
+  - attack.discovery
+  - attack.t1046
+correlation:
+  type: value_count
+  rules:
+    - zeek_conn_rejected_or_unanswered
+  group-by:
+    - id.orig_h
+    - id.resp_h
+  timespan: 1m
+  condition:
+    gte: 25
+    field: id.resp_p
+falsepositives:
+  - Vulnerability scanners and asset inventory tools (allowlist their source addresses)
+  - Monitoring systems that check many ports on one host
+level: medium
