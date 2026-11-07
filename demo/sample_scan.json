@@ -1,0 +1,123 @@
+{
+  "note": "Synthetic sample scan of a fictional home lab, used by DEMO_MODE. Same format as scanner_cli.py output. CVEs are only listed where the service banner reveals a vulnerable version.",
+  "params": {
+    "network": "10.0.0.0/24",
+    "target": "",
+    "ports": "1-1000",
+    "udp": true,
+    "vuln": true,
+    "no_api": true
+  },
+  "results": [
+    {
+      "host": "10.0.0.1",
+      "mac": "ac:84:c9:3e:51:0a",
+      "vendor": "TP-Link",
+      "os": "Linux / macOS",
+      "device": "Router / AP",
+      "hostname": "",
+      "services": [],
+      "tcp_ports": [
+        {"port": 53, "service": "DNS", "banner": null, "cves": []},
+        {"port": 80, "service": "HTTP", "banner": null, "cves": []},
+        {"port": 443, "service": "HTTPS", "banner": null, "cves": []}
+      ],
+      "udp_ports": [
+        {"port": 53, "service": "DNS"},
+        {"port": 1900, "service": "Unknown"}
+      ]
+    },
+    {
+      "host": "10.0.0.10",
+      "mac": "b8:27:eb:9f:12:34",
+      "vendor": "Raspberry Pi",
+      "os": "Linux / macOS",
+      "device": "Raspberry Pi",
+      "hostname": "pihole",
+      "services": ["Linux / Mac"],
+      "tcp_ports": [
+        {
+          "port": 22,
+          "service": "SSH",
+          "banner": "SSH-2.0-OpenSSH_7.4p1 Raspbian-10+deb9u7",
+          "cves": [
+            {"id": "CVE-2018-15473", "severity": "MEDIUM", "desc": "OpenSSH through 7.7 username enumeration"}
+          ]
+        },
+        {"port": 80, "service": "HTTP", "banner": null, "cves": []}
+      ],
+      "udp_ports": [
+        {"port": 53, "service": "DNS"}
+      ]
+    },
+    {
+      "host": "10.0.0.23",
+      "mac": "00:11:32:7a:c4:19",
+      "vendor": "Synology",
+      "os": "Linux / macOS",
+      "device": "NAS",
+      "hostname": "homelab-nas",
+      "services": ["Mac / Windows PC", "Web Server / Router"],
+      "tcp_ports": [
+        {"port": 80, "service": "HTTP", "banner": null, "cves": []},
+        {"port": 443, "service": "HTTPS", "banner": null, "cves": []}
+      ],
+      "udp_ports": []
+    },
+    {
+      "host": "10.0.0.42",
+      "mac": "00:0c:29:5d:8e:21",
+      "vendor": "VMware",
+      "os": "Linux / macOS",
+      "device": "Virtual Machine",
+      "hostname": "metasploitable",
+      "services": [],
+      "tcp_ports": [
+        {
+          "port": 21,
+          "service": "FTP",
+          "banner": "220 (vsFTPd 2.3.4)",
+          "cves": [
+            {"id": "CVE-2011-2523", "severity": "CRITICAL", "desc": "vsftpd 2.3.4 backdoor gives a root shell"}
+          ]
+        },
+        {
+          "port": 22,
+          "service": "SSH",
+          "banner": "SSH-2.0-OpenSSH_4.7p1 Debian-8ubuntu1",
+          "cves": [
+            {"id": "CVE-2018-15473", "severity": "MEDIUM", "desc": "OpenSSH through 7.7 username enumeration"}
+          ]
+        },
+        {"port": 23, "service": "Telnet", "banner": null, "cves": []},
+        {"port": 80, "service": "HTTP", "banner": null, "cves": []},
+        {"port": 3306, "service": "MySQL", "banner": null, "cves": []}
+      ],
+      "udp_ports": []
+    },
+    {
+      "host": "10.0.0.57",
+      "mac": "da:a1:19:4c:22:7e",
+      "vendor": "Randomized MAC (Privacy Mode)",
+      "os": "Linux / macOS",
+      "device": "iPhone / iPad",
+      "hostname": "iphone",
+      "services": ["iPhone / iPad"],
+      "tcp_ports": [],
+      "udp_ports": []
+    },
+    {
+      "host": "10.0.0.88",
+      "mac": "3c:52:82:61:0f:b4",
+      "vendor": "Unknown",
+      "os": "Windows",
+      "device": "Unknown",
+      "hostname": "",
+      "services": [],
+      "tcp_ports": [
+        {"port": 3389, "service": "RDP", "banner": null, "cves": []}
+      ],
+      "udp_ports": []
+    }
+  ]
+}

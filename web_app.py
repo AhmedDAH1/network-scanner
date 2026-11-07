@@ -13,7 +13,6 @@ import re
 import subprocess
 import sys
 import threading
-import uuid
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
@@ -26,6 +25,8 @@ from flask import (
     stream_with_context,
 )
 
+from scanner.fileutil import ensure_dir, write_json_atomic
+
 app = Flask(__name__)
 
 # Demo mode: when set, disables live scanning and shows pre-loaded sample data.
@@ -34,9 +35,17 @@ app = Flask(__name__)
 # get full scanning functionality.
 DEMO_MODE = os.environ.get("DEMO_MODE", "0") == "1"
 
-HISTORY_FILE = "scan_history.json"
-RESULTS_FILE = "scan_results.json"   # written by scanner_cli.py
-SCANNER_CLI  = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scanner_cli.py")
+# ── Files ───────────────────────────────────────────────────────
+# All runtime data lives in one folder (default: ./data next to this file),
+# whatever directory the server is started from. docker-compose mounts
+# ./data into the container, so scan history survives restarts.
+APP_DIR      = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR     = os.environ.get("NETSCAN_DATA_DIR", os.path.join(APP_DIR, "data"))
+HISTORY_FILE = os.path.join(DATA_DIR, "scan_history.json")
+RESULTS_FILE = os.path.join(DATA_DIR, "scan_results.json")   # written by scanner_cli.py
+SCANNER_CLI  = os.path.join(APP_DIR, "scanner_cli.py")
+DEMO_SAMPLE  = os.path.join(APP_DIR, "demo", "sample_scan.json")
+MAX_HISTORY  = 20
 
 # ── Network exposure ──────────────────────────────────────────────
 # The dashboard has no login, so by default it only listens on loopback:
@@ -65,21 +74,31 @@ _scan_state = {"proc": None}       # the running scanner subprocess, if any
 # ── History helpers ───────────────────────────────────────────────
 
 def load_history():
-    if os.path.exists(HISTORY_FILE):
-        try:
-            with open(HISTORY_FILE) as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return []
+    """Return the saved scans, newest first ([] if there are none yet)."""
+    try:
+        with open(HISTORY_FILE, encoding="utf-8") as f:
+            history = json.load(f)
+    except FileNotFoundError:
+        return []
+    except ValueError as e:
+        # Damaged JSON. Don't treat it as "no history" and let the next save
+        # overwrite it: move it aside so the old scans can still be recovered.
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        backup = f"{HISTORY_FILE}.corrupt-{stamp}"
+        with contextlib.suppress(OSError):
+            os.replace(HISTORY_FILE, backup)
+        print(f"[!] {HISTORY_FILE} was damaged ({e}); moved it to {backup}")
+        return []
+    except OSError as e:
+        print(f"[!] Could not read {HISTORY_FILE}: {e}")
+        return []
+    return history if isinstance(history, list) else []
 
 
 def save_history(entry):
-    history = load_history()
-    history.insert(0, entry)
-    history = history[:20]   # keep last 20 scans
-    with open(HISTORY_FILE, "w") as f:
-        json.dump(history, f, indent=2)
+    ensure_dir(DATA_DIR)
+    history = [entry, *load_history()][:MAX_HISTORY]   # newest first
+    write_json_atomic(HISTORY_FILE, history)
 
 
 # ── HTML template ─────────────────────────────────────────────────
@@ -1287,6 +1306,21 @@ function loadHistory() {
         });
 }
 
+// In demo mode, show the sample scan straight away so the Results and
+// Topology pages aren't empty for first-time visitors.
+const DEMO_MODE = {{ 'true' if demo_mode else 'false' }};
+if (DEMO_MODE) {
+    fetch('/history')
+        .then(r => r.json())
+        .then(data => {
+            historyEntries = Array.isArray(data) ? data : [];
+            if (historyEntries.length && !currentResults) {
+                currentResults = historyEntries[0].results;
+                renderResults(currentResults);
+            }
+        });
+}
+
 function loadHistoryEntry(index) {
     const entry = historyEntries[index];
     if (!entry) return;
@@ -1460,6 +1494,7 @@ def scan_stream():
                 stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,
+                cwd=ensure_dir(DATA_DIR),   # scan_results.json + scan_report.html land in data/
             )
             _scan_state["proc"] = proc
 
@@ -1528,74 +1563,23 @@ def get_history():
 
 
 def seed_demo_history():
-    """In demo mode, pre-populate scan_history.json with a sample scan
-    so visitors see meaningful data without running a live scan.
+    """In demo mode, start with one sample scan so visitors see real-looking
+    results without running a scan.
 
-    Skips seeding if a history file already exists (e.g., mounted from
-    a volume in local Docker runs)."""
-    if not DEMO_MODE:
+    The sample lives in demo/sample_scan.json in the exact format that
+    scanner_cli.py produces, so the dashboard renders it like any real scan.
+    Skips seeding if history already exists (e.g. a mounted ./data volume).
+    """
+    if not DEMO_MODE or os.path.exists(HISTORY_FILE):
         return
-    if os.path.exists(HISTORY_FILE):
-        return
-
-    sample = {
-        "id": str(uuid.uuid4()),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "params": {
-            "network": "10.0.0.0/24",
-            "ports": "1-1000",
-            "udp": False,
-            "vuln": True,
-            "no_api": False,
-        },
-        "results": [
-            {
-                "ip": "10.0.0.1",
-                "mac": "00:50:56:c0:00:01",
-                "vendor": "VMware",
-                "hostname": "gateway.local",
-                "ports": [22, 80, 443],
-            },
-            {
-                "ip": "10.0.0.42",
-                "mac": "b8:27:eb:9f:12:34",
-                "vendor": "Raspberry Pi",
-                "hostname": "pi-cluster.local",
-                "ports": [22, 8080],
-            },
-            {
-                "ip": "10.0.0.105",
-                "mac": "ac:84:c9:11:22:33",
-                "vendor": "TP-Link",
-                "hostname": "office-ap.local",
-                "ports": [80, 443, 8443],
-            },
-            {
-                "ip": "10.0.0.200",
-                "mac": "00:0c:29:aa:bb:cc",
-                "vendor": "VMware",
-                "hostname": "vm-host-01",
-                "ports": [22, 3389, 5985],
-            },
-        ],
-        "vulns": [
-            {
-                "ip": "10.0.0.42",
-                "port": 8080,
-                "cve": "CVE-2021-44228",
-                "service": "Apache log4j",
-                "severity": "CRITICAL",
-            },
-            {
-                "ip": "10.0.0.1",
-                "port": 22,
-                "cve": "CVE-2023-48795",
-                "service": "OpenSSH",
-                "severity": "HIGH",
-            },
-        ],
-    }
-    save_history(sample)
+    with open(DEMO_SAMPLE, encoding="utf-8") as f:
+        sample = json.load(f)
+    save_history({
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "params": sample["params"],
+        "results": sample["results"],
+        "sample": True,
+    })
 
 
 if __name__ == "__main__":
@@ -1607,6 +1591,8 @@ if __name__ == "__main__":
     if BIND_HOST not in ("127.0.0.1", "localhost", "::1"):
         print(f"  ⚠  Listening on {BIND_HOST}: the dashboard has NO authentication.")
         print("     Only do this inside a container whose port is published on 127.0.0.1.")
+    print(f"  Data   → {DATA_DIR}")
     print("─" * 50 + "\n")
+    ensure_dir(DATA_DIR)
     seed_demo_history()
     app.run(host=BIND_HOST, port=PORT, debug=False, threaded=True)

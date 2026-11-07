@@ -8,6 +8,7 @@ from colorama import Fore, init
 from tabulate import tabulate
 
 from scanner.device_detection import detect_device
+from scanner.fileutil import give_to_invoking_user, write_json_atomic
 from scanner.host_discovery import discover_hosts
 from scanner.mdns_probe import mdns_probe_hosts
 from scanner.os_fingerprint import os_fingerprint
@@ -24,8 +25,7 @@ init(autoreset=True)
 # ──────────────────────────────────────────
 
 def save_json(all_results, path="scan_results.json"):
-    with open(path, "w") as f:
-        json.dump(all_results, f, indent=4)
+    write_json_atomic(path, all_results, indent=4)
     print(f"\n{Fore.GREEN}[+] JSON report saved → {path}")
 
 
@@ -61,6 +61,7 @@ def save_html(all_results, path="scan_report.html"):
 
     with open(path, "w", encoding="utf-8") as f:
         f.write(html)
+    give_to_invoking_user(path)   # don't leave a root-owned report behind after sudo
     print(f"{Fore.GREEN}[+] HTML report saved → {path}")
 
 
