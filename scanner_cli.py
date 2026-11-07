@@ -209,12 +209,17 @@ def main():
 
         tcp_results = []
         for port in open_tcp:
-            info = detect_service(target, port)   # returns {port, service, banner}
+            info = detect_service(target, port)   # {port, service, banner, product, version}
             tcp_results.append(info)
 
         if tcp_results:
-            table_data = [(r["port"], r["service"], r["banner"] or "") for r in tcp_results]
-            print(tabulate(table_data, headers=["Port", "Service", "Banner"], tablefmt="fancy_grid"))
+            table_data = [
+                (r["port"], r["service"],
+                 " ".join(x for x in (r.get("product"), r.get("version")) if x),
+                 r["banner"] or "")
+                for r in tcp_results
+            ]
+            print(tabulate(table_data, headers=["Port", "Service", "Software", "Banner"], tablefmt="fancy_grid"))
         else:
             print(f"{Fore.RED}  No open TCP ports found.")
 

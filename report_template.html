@@ -86,6 +86,8 @@ td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--seam); vertical-a
 .cve { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; align-items: center; }
 .cve-id { font-family: var(--mono); font-size: 13px; font-weight: 600; }
 .cve-desc { grid-column: 2; color: var(--muted); font-size: 12.5px; }
+.cve-note { grid-column: 2; color: var(--faint); font-size: 12px; }
+.software { display: block; font-family: var(--mono); font-size: 12.5px; }
 
 .host { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--seam-strong); break-inside: avoid-page; }
 .host-head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; }
@@ -140,7 +142,7 @@ td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--seam); vertical-a
   <div id="hosts"></div>
 
   <footer class="notes">
-    <p>Risk is the most severe CVE matched to a host's services. A host without a match can still be exposed. The OS guess comes from the packet TTL and is only a hint.</p>
+    <p>Risk is the most severe CVE matched to a host's software. CVEs are only matched when the banner shows the product and version, so a host without a match can still be vulnerable. The OS guess comes from the packet TTL and is only a hint.</p>
     <p>Only scan networks you own or have written permission to test.</p>
   </footer>
 </main>
@@ -174,7 +176,18 @@ function cveHtml(c) {
   const label = /^CVE-\d{4}-\d{4,7}$/.test(id)
     ? `<a class="cve-id" href="https://nvd.nist.gov/vuln/detail/${esc(id)}">${esc(id)}</a>`
     : `<span class="cve-id">${esc(id)}</span>`;
-  return `<li class="cve">${riskHtml(cveLevel(c))}${label}<span class="cve-desc">${esc(c?.desc)}</span></li>`;
+  const note = c?.note ? `<span class="cve-note">${esc(c.note)}</span>` : '';
+  return `<li class="cve">${riskHtml(cveLevel(c))}${label}<span class="cve-desc">${esc(c?.desc)}</span>${note}</li>`;
+}
+const software = (p) => [p?.product, p?.version].filter(Boolean).join(' ');
+function vulnStatusHtml(p) {
+  if (p.proto === 'udp') return '<span class="muted">Not checked</span>';
+  if (list(p.cves).length) return `<ul class="cves">${list(p.cves).map(cveHtml).join('')}</ul>`;
+  const text = !('cves' in p) ? 'Not checked'
+    : p.vuln_source === 'nvd' ? 'None reported by NVD'
+    : p.vuln_source === 'offline' ? 'Not in the offline list'
+    : 'Version not identified';
+  return `<span class="muted">${text}</span>`;
 }
 
 const hosts = list(SCAN_DATA)
@@ -238,9 +251,9 @@ document.getElementById('hosts').innerHTML = hosts.map(({ h, level }) => {
     ${ports.length ? `<table class="ports"><thead><tr><th>Port</th><th>Service</th><th>Banner</th><th>Vulnerabilities</th></tr></thead><tbody>
       ${ports.map((p) => `<tr>
         <td class="port">${esc(p.port)}/${p.proto}</td>
-        <td>${esc(known(p.service) || 'Unknown')}</td>
+        <td>${esc(known(p.service) || 'Unknown')}${software(p) ? `<span class="software">${esc(software(p))}</span>` : ''}</td>
         <td class="banner">${p.banner ? esc(p.banner) : '<span class="muted">No banner</span>'}</td>
-        <td>${list(p.cves).length ? `<ul class="cves">${list(p.cves).map(cveHtml).join('')}</ul>` : '<span class="muted">None matched</span>'}</td>
+        <td>${vulnStatusHtml(p)}</td>
       </tr>`).join('')}</tbody></table>` : '<p class="muted">No open ports found in the scanned range.</p>'}
   </section>`;
 }).join('');

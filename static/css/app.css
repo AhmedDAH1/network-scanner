@@ -379,6 +379,8 @@ thead + tbody tr:first-child td { border-top: 0; }
 .cve { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; align-items: center; }
 .cve-id { font-family: var(--mono); font-size: 13px; font-weight: 600; }
 .cve-desc { grid-column: 2; color: var(--muted); font-size: 12.5px; }
+.cve-note { grid-column: 2; color: var(--faint); font-size: 12px; }
+.software { color: var(--text); font-family: var(--mono); font-size: 12.5px; }
 
 .facts { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0; align-content: start; }
 .facts dt { color: var(--muted); font-size: 12px; padding-top: 1px; }

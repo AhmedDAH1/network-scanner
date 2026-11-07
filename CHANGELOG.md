@@ -5,6 +5,38 @@ All notable changes to NetScan. The format follows
 project uses [Semantic Versioning](https://semver.org/): MAJOR for breaking
 changes, MINOR for new features, PATCH for fixes.
 
+## [2.1.0] - 2026-11-07
+
+Vulnerability results you can trust: CVEs are matched by the product and
+version a service reports, instead of by port number.
+
+### Fixed
+- False positives. CVEs were attached by port alone, so every port 53 got
+  SIGRed (a Windows DNS server bug), every port 80 the same Apache CVEs and
+  every 3389 BlueKeep. A CVE is now only reported when the banner names the
+  product and a version inside the CVE's affected range.
+- The offline CVE table contained entries for the wrong products; it was
+  replaced by a small list of well-known CVEs with affected version ranges
+  checked against public advisories.
+- NVD lookups searched by keyword (e.g. "ssh 7.4") and waited 0.6 s between
+  requests, well over NVD's limit of 5 per 30 s, so most requests failed.
+  Lookups now use the exact CPE name of the product version, wait 6.5 s, and
+  are cached per scan.
+
+### Added
+- Web servers are sent a `HEAD` request, so their `Server` header (e.g.
+  `Apache/2.4.49`) becomes the banner.
+- Product and version detection for OpenSSH, Dropbear, vsftpd, ProFTPD,
+  FileZilla Server, Apache, nginx, lighttpd, IIS, Exim, MySQL and MariaDB.
+- The CLI table, dashboard and report show the identified software, each
+  CVE's conditions (for example "only when mod_copy is loaded"), and whether a
+  port was checked at all ("Version not identified").
+
+### Security
+- Banners are reduced to printable characters before they are shown or
+  stored, so a hostile service can't send terminal escape codes that rewrite
+  the analyst's terminal.
+
 ## [2.0.0] - 2026-11-07
 
 A security and quality release: the web dashboard was hardened against
@@ -110,6 +142,7 @@ Released after 1.3 under an inconsistent number; 2.0.0 restores ordering.
 - Host discovery (ARP with ICMP fallback), TCP SYN scanning, service banners,
   TTL-based OS guess, JSON and HTML reports.
 
+[2.1.0]: https://github.com/AhmedDAH1/network-scanner/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/AhmedDAH1/network-scanner/compare/v1.1.0...v2.0.0
 [1.1.0]: https://github.com/AhmedDAH1/network-scanner/compare/v1.3...v1.1.0
 [1.3]: https://github.com/AhmedDAH1/network-scanner/compare/v1.0...v1.3

@@ -1,5 +1,5 @@
 {
-  "note": "Synthetic sample scan of a fictional home lab, used by DEMO_MODE. Same format as scanner_cli.py output. CVEs are only listed where the service banner reveals a vulnerable version.",
+  "note": "Synthetic sample scan of a fictional home lab, used by DEMO_MODE. Built by running realistic banners through the real parser and offline CVE matcher.",
   "params": {
     "network": "10.0.0.0/24",
     "target": "",
@@ -18,13 +18,43 @@
       "hostname": "",
       "services": [],
       "tcp_ports": [
-        {"port": 53, "service": "DNS", "banner": null, "cves": []},
-        {"port": 80, "service": "HTTP", "banner": null, "cves": []},
-        {"port": 443, "service": "HTTPS", "banner": null, "cves": []}
+        {
+          "port": 53,
+          "service": "DNS",
+          "banner": null,
+          "product": null,
+          "version": null,
+          "cves": [],
+          "vuln_source": "unidentified"
+        },
+        {
+          "port": 80,
+          "service": "HTTP",
+          "banner": "lighttpd/1.4.59",
+          "product": "lighttpd",
+          "version": "1.4.59",
+          "cves": [],
+          "vuln_source": "offline"
+        },
+        {
+          "port": 443,
+          "service": "HTTPS",
+          "banner": null,
+          "product": null,
+          "version": null,
+          "cves": [],
+          "vuln_source": "unidentified"
+        }
       ],
       "udp_ports": [
-        {"port": 53, "service": "DNS"},
-        {"port": 1900, "service": "Unknown"}
+        {
+          "port": 53,
+          "service": "DNS"
+        },
+        {
+          "port": 1900,
+          "service": "Unknown"
+        }
       ]
     },
     {
@@ -34,20 +64,49 @@
       "os": "Linux / macOS",
       "device": "Raspberry Pi",
       "hostname": "pihole",
-      "services": ["Linux / Mac"],
+      "services": [
+        "Linux / Mac"
+      ],
       "tcp_ports": [
         {
           "port": 22,
           "service": "SSH",
           "banner": "SSH-2.0-OpenSSH_7.4p1 Raspbian-10+deb9u7",
+          "product": "OpenSSH",
+          "version": "7.4p1",
           "cves": [
-            {"id": "CVE-2018-15473", "severity": "MEDIUM", "desc": "OpenSSH through 7.7 username enumeration"}
-          ]
+            {
+              "id": "CVE-2023-48795",
+              "severity": "MEDIUM",
+              "desc": "Terrapin: SSH handshake prefix truncation weakens connection integrity",
+              "note": "Only when ChaCha20-Poly1305 or an Encrypt-then-MAC mode is negotiated. Linux distributions often patch this without changing the version number, so check the package's own advisories.",
+              "source": "offline"
+            },
+            {
+              "id": "CVE-2018-15473",
+              "severity": "MEDIUM",
+              "desc": "Username enumeration: attackers can test which accounts exist",
+              "note": "Linux distributions often patch this without changing the version number, so check the package's own advisories.",
+              "source": "offline"
+            }
+          ],
+          "vuln_source": "offline"
         },
-        {"port": 80, "service": "HTTP", "banner": null, "cves": []}
+        {
+          "port": 80,
+          "service": "HTTP",
+          "banner": "lighttpd/1.4.53",
+          "product": "lighttpd",
+          "version": "1.4.53",
+          "cves": [],
+          "vuln_source": "offline"
+        }
       ],
       "udp_ports": [
-        {"port": 53, "service": "DNS"}
+        {
+          "port": 53,
+          "service": "DNS"
+        }
       ]
     },
     {
@@ -57,12 +116,86 @@
       "os": "Linux / macOS",
       "device": "NAS",
       "hostname": "homelab-nas",
-      "services": ["Mac / Windows PC", "Web Server / Router"],
+      "services": [
+        "Mac / Windows PC",
+        "Web Server / Router"
+      ],
       "tcp_ports": [
-        {"port": 80, "service": "HTTP", "banner": null, "cves": []},
-        {"port": 443, "service": "HTTPS", "banner": null, "cves": []}
+        {
+          "port": 80,
+          "service": "HTTP",
+          "banner": "nginx",
+          "product": "nginx",
+          "version": null,
+          "cves": [],
+          "vuln_source": "unidentified"
+        },
+        {
+          "port": 443,
+          "service": "HTTPS",
+          "banner": null,
+          "product": null,
+          "version": null,
+          "cves": [],
+          "vuln_source": "unidentified"
+        }
       ],
       "udp_ports": []
+    },
+    {
+      "host": "10.0.0.31",
+      "mac": "52:54:00:3a:91:c7",
+      "vendor": "QEMU/KVM",
+      "os": "Linux / macOS",
+      "device": "Virtual Machine",
+      "hostname": "devbox",
+      "services": [
+        "Linux / Mac"
+      ],
+      "udp_ports": [],
+      "tcp_ports": [
+        {
+          "port": 22,
+          "service": "SSH",
+          "banner": "SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13",
+          "product": "OpenSSH",
+          "version": "9.6p1",
+          "cves": [
+            {
+              "id": "CVE-2024-6387",
+              "severity": "HIGH",
+              "desc": "regreSSHion: unauthenticated remote code execution in sshd",
+              "note": "Linux distributions often patch this without changing the version number, so check the package's own advisories.",
+              "source": "offline"
+            }
+          ],
+          "vuln_source": "offline"
+        },
+        {
+          "port": 80,
+          "service": "HTTP",
+          "banner": "Apache/2.4.49 (Unix)",
+          "product": "Apache httpd",
+          "version": "2.4.49",
+          "cves": [
+            {
+              "id": "CVE-2021-42013",
+              "severity": "CRITICAL",
+              "desc": "Path traversal and remote code execution (incomplete fix for CVE-2021-41773)",
+              "note": "Needs the default 'Require all denied' protection removed; code execution also needs CGI enabled.",
+              "source": "offline"
+            },
+            {
+              "id": "CVE-2021-41773",
+              "severity": "HIGH",
+              "desc": "Path traversal and file disclosure",
+              "note": "Needs the default 'Require all denied' protection removed.",
+              "source": "offline"
+            }
+          ],
+          "vuln_source": "offline"
+        }
+      ]
     },
     {
       "host": "10.0.0.42",
@@ -77,21 +210,63 @@
           "port": 21,
           "service": "FTP",
           "banner": "220 (vsFTPd 2.3.4)",
+          "product": "vsftpd",
+          "version": "2.3.4",
           "cves": [
-            {"id": "CVE-2011-2523", "severity": "CRITICAL", "desc": "vsftpd 2.3.4 backdoor gives a root shell"}
-          ]
+            {
+              "id": "CVE-2011-2523",
+              "severity": "CRITICAL",
+              "desc": "Backdoor opens a root shell on port 6200",
+              "note": "Only in copies downloaded from the official site between 30 June and 3 July 2011.",
+              "source": "offline"
+            }
+          ],
+          "vuln_source": "offline"
         },
         {
           "port": 22,
           "service": "SSH",
           "banner": "SSH-2.0-OpenSSH_4.7p1 Debian-8ubuntu1",
+          "product": "OpenSSH",
+          "version": "4.7p1",
           "cves": [
-            {"id": "CVE-2018-15473", "severity": "MEDIUM", "desc": "OpenSSH through 7.7 username enumeration"}
-          ]
+            {
+              "id": "CVE-2018-15473",
+              "severity": "MEDIUM",
+              "desc": "Username enumeration: attackers can test which accounts exist",
+              "note": "Linux distributions often patch this without changing the version number, so check the package's own advisories.",
+              "source": "offline"
+            }
+          ],
+          "vuln_source": "offline"
         },
-        {"port": 23, "service": "Telnet", "banner": null, "cves": []},
-        {"port": 80, "service": "HTTP", "banner": null, "cves": []},
-        {"port": 3306, "service": "MySQL", "banner": null, "cves": []}
+        {
+          "port": 23,
+          "service": "Telnet",
+          "banner": null,
+          "product": null,
+          "version": null,
+          "cves": [],
+          "vuln_source": "unidentified"
+        },
+        {
+          "port": 80,
+          "service": "HTTP",
+          "banner": "Apache/2.2.8 (Ubuntu) DAV/2",
+          "product": "Apache httpd",
+          "version": "2.2.8",
+          "cves": [],
+          "vuln_source": "offline"
+        },
+        {
+          "port": 3306,
+          "service": "MySQL",
+          "banner": "5.0.51a-3ubuntu5",
+          "product": "MySQL",
+          "version": "5.0.51a",
+          "cves": [],
+          "vuln_source": "offline"
+        }
       ],
       "udp_ports": []
     },
@@ -102,7 +277,9 @@
       "os": "Linux / macOS",
       "device": "iPhone / iPad",
       "hostname": "iphone",
-      "services": ["iPhone / iPad"],
+      "services": [
+        "iPhone / iPad"
+      ],
       "tcp_ports": [],
       "udp_ports": []
     },
@@ -115,7 +292,15 @@
       "hostname": "",
       "services": [],
       "tcp_ports": [
-        {"port": 3389, "service": "RDP", "banner": null, "cves": []}
+        {
+          "port": 3389,
+          "service": "RDP",
+          "banner": null,
+          "product": null,
+          "version": null,
+          "cves": [],
+          "vuln_source": "unidentified"
+        }
       ],
       "udp_ports": []
     }

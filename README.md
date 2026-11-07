@@ -28,8 +28,9 @@ network.
 - **Identification:** service banners, MAC vendor lookup (offline),
   randomized-MAC detection, mDNS/Bonjour names and services, and an OS guess
   from the packet TTL.
-- **Vulnerabilities:** CVE lookup through the NVD API, with an offline table
-  when there's no internet.
+- **Vulnerabilities:** CVEs matched by the product and version each service
+  reports (web servers are asked for their `Server` header), from a verified
+  offline list and exact-version NVD lookups. No version, no CVE claim.
 - **Output:** terminal tables, JSON, and a self-contained HTML report you can
   email or print.
 - **Web dashboard:** live scan output, findings sorted by risk, a network map,
@@ -101,7 +102,7 @@ potentially hostile.
 
 | Threat | Example | Defence |
 |---|---|---|
-| **A scanned device** | A service answers with `<img src=x onerror=...>` as its banner | Every value is HTML-escaped. A strict Content-Security-Policy (no inline scripts, handlers or styles) blocks injected code even if escaping were missed. The report embeds data so a `</script>` in a banner can't end the script block. |
+| **A scanned device** | A service answers with `<img src=x onerror=...>`, or with terminal escape codes, as its banner | Every value is HTML-escaped. A strict Content-Security-Policy (no inline scripts, handlers or styles) blocks injected code even if escaping were missed. The report embeds data so a `</script>` in a banner can't end the script block. Banners are reduced to printable characters, so escape codes can't rewrite your terminal. |
 | **A website you visit** | `<img src="http://localhost:8000/scan/stream?network=...">` starts a root scan | Scans can only be started from the dashboard's own page (`Sec-Fetch-Site` and `Origin` checks against CSRF), and the `Host` header must be `localhost` or `127.0.0.1` (DNS rebinding). |
 | **Others on your network** | Someone on the same Wi-Fi opens your dashboard | It listens on `127.0.0.1` only. Docker publishes it on the host's loopback only. |
 | **Input to a root process** | `10.0.0.1; rm -rf ~`, or a target of `-p` | Input is parsed with `ipaddress` and the command is rebuilt from the parsed values; there is no shell. Helper binaries run from absolute paths, never through `PATH`. |
@@ -114,7 +115,7 @@ bugs that were found and fixed.
 
 ```bash
 pip install -r requirements-dev.txt
-python3 -m pytest      # 105 tests, about 7 seconds, no root or network needed
+python3 -m pytest      # 171 tests, about 7 seconds, no root or internet needed
 ruff check .           # lint, including the Bandit security rules
 ```
 
@@ -144,15 +145,20 @@ flowchart LR
   Windows). It's a hint, not a fingerprint.
 - **Device identification** combines the MAC vendor (offline OUI data),
   randomized-MAC detection and mDNS service announcements.
-- **CVE lookup** queries the NVD API for each detected service and falls back
-  to a curated offline table.
+- **CVE matching** reads the product and version from each banner, then checks
+  them against affected version ranges: a small offline list of well-known
+  CVEs whose ranges were checked against public advisories, plus NVD looked up
+  by the exact CPE name (for example
+  `cpe:2.3:a:openbsd:openssh:7.4:p1`), never by keyword. Ports whose version
+  can't be identified are reported as not checked.
 
 ## Limitations
 
-- **CVE matches are by service, not yet by product version**, so they can
-  include false positives, for example a Windows DNS server CVE on a router's
-  port 53. Version-aware matching is the next planned change. Every CVE links
-  to its NVD entry so you can check it.
+- **CVE matching needs a version in the banner.** Many services hide it, and
+  those ports aren't checked, so "no CVEs" doesn't mean "not vulnerable".
+  Linux distributions often backport fixes without changing the version
+  number, so a match means "check this", not "confirmed". Every CVE links to
+  its NVD entry.
 - The OS guess uses only the TTL.
 - IPv4 only, and networks up to /16.
 - The dashboard has no login: it's protected by being reachable only from your

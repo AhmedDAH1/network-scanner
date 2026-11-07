@@ -92,7 +92,25 @@ function cveHtml(cve) {
     const label = /^CVE-\d{4}-\d{4,7}$/.test(id)
         ? `<a class="cve-id" href="https://nvd.nist.gov/vuln/detail/${esc(id)}" target="_blank" rel="noopener noreferrer">${esc(id)}</a>`
         : `<span class="cve-id">${esc(id)}</span>`;
-    return `<li class="cve">${riskHtml(cveLevel(cve))}${label}<span class="cve-desc">${esc(cve?.desc)}</span></li>`;
+    const note = cve?.note ? `<span class="cve-note">${esc(cve.note)}</span>` : '';
+    return `<li class="cve">${riskHtml(cveLevel(cve))}${label}<span class="cve-desc">${esc(cve?.desc)}</span>${note}</li>`;
+}
+
+function software(port) {
+    return [port?.product, port?.version].filter(Boolean).join(' ');
+}
+
+// What the vulnerability column says when no CVE matched. "None matched" on
+// its own would hide whether anything was actually checked.
+function vulnStatusHtml(port) {
+    const cves = asList(port.cves);
+    if (cves.length) return `<ul class="cves">${cves.map(cveHtml).join('')}</ul>`;
+    let text;
+    if (!('cves' in port)) text = 'Not checked';
+    else if (port.vuln_source === 'nvd') text = 'None reported by NVD';
+    else if (port.vuln_source === 'offline') text = 'Not in the offline list';
+    else text = 'Version not identified';
+    return `<span class="muted">${text}</span>`;
 }
 
 const dateFmt = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
@@ -385,7 +403,7 @@ function renderResults() {
           ${rows}
         </table>
       </div>
-      <p class="footnote">Risk is the most severe CVE matched to a host's services. A host without a match can still be exposed. The OS guess comes from the packet TTL and is only a hint.</p>`;
+      <p class="footnote">Risk is the most severe CVE matched to a host's software. CVEs are only matched when the banner shows the product and version, so a host without a match can still be vulnerable. The OS guess comes from the packet TTL and is only a hint.</p>`;
 
     // Bar widths are set through the DOM, not inline style attributes,
     // so the strict Content-Security-Policy can stay on.
@@ -398,12 +416,11 @@ function portsTableHtml(host) {
     const all = [...tcp, ...udp];
     if (!all.length) return '<p class="muted">No open ports found in the scanned range.</p>';
     const rows = all.map((p) => {
-        const cves = asList(p.cves);
         return `<tr>
           <td class="port">${esc(p.port)}/${p.proto}</td>
-          <td>${esc(known(p.service) || 'Unknown')}</td>
+          <td>${esc(known(p.service) || 'Unknown')}${software(p) ? `<span class="sub software">${esc(software(p))}</span>` : ''}</td>
           <td class="banner">${p.banner ? esc(p.banner) : '<span class="muted">No banner</span>'}</td>
-          <td>${cves.length ? `<ul class="cves">${cves.map(cveHtml).join('')}</ul>` : '<span class="muted">None matched</span>'}</td>
+          <td>${p.proto === 'udp' ? '<span class="muted">Not checked</span>' : vulnStatusHtml(p)}</td>
         </tr>`;
     }).join('');
     return `<table class="ports-table">
@@ -547,9 +564,9 @@ function showNodeDetail(index) {
         ...asList(host.udp_ports).map((p) => ({ ...p, proto: 'udp' })),
     ];
     const portItems = ports.map((p) => `<li>
-        <span><span class="port">${esc(p.port)}/${p.proto}</span> ${esc(known(p.service) || 'Unknown')}</span>
+        <span><span class="port">${esc(p.port)}/${p.proto}</span> ${esc(known(p.service) || 'Unknown')}${software(p) ? ` <span class="software">${esc(software(p))}</span>` : ''}</span>
         ${p.banner ? `<span class="banner">${esc(p.banner)}</span>` : ''}
-        ${asList(p.cves).length ? `<ul class="cves">${asList(p.cves).map(cveHtml).join('')}</ul>` : ''}
+        ${p.proto === 'tcp' && 'cves' in p ? vulnStatusHtml(p) : ''}
       </li>`).join('');
 
     $('#map-detail').innerHTML = `

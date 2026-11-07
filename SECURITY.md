@@ -60,8 +60,9 @@ platform:
   outside a container whose port is published on loopback.
 - It uses Flask's development server.
 - Processes run as root inside the container, because Scapy needs raw sockets.
-- CVE matching is by service, not yet by product version, so results can
-  include false positives.
+- CVE matching relies on the version a service reports: hidden versions mean
+  missed CVEs, and fixes backported by Linux distributions can make a patched
+  service look vulnerable.
 
 The public demo (https://network-scanner-8ihy.onrender.com) runs with
 `DEMO_MODE=1`: scanning is disabled and the data is a synthetic sample.
