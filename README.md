@@ -130,7 +130,9 @@ capture built to trip it (active-mode FTP also sends SYNs from port 20). CI
 runs Suricata on both captures, executes the Sigma rules and checks they still
 convert to Splunk and Elasticsearch queries. Results, the rule variants that
 were rejected and why, and the limitations are in
-[detections/TESTING.md](detections/TESTING.md).
+[detections/TESTING.md](detections/TESTING.md). The Sigma rules are also in my
+[Sigma rule collection](https://github.com/AhmedDAH1/sigma-detection-rules),
+tested to the same standard as every other rule there.
 
 ## Testing
 

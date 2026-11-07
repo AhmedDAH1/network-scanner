@@ -22,6 +22,12 @@ third detects port scanning in general, including NetScan with its
 User-Agent and fingerprint changed. Production coverage needs the third;
 the first two make triage faster.
 
+The Sigma rules are also part of
+[sigma-detection-rules](https://github.com/AhmedDAH1/sigma-detection-rules),
+my tested Sigma rule collection, with more test cases (threshold edges, a
+retrying client, a slow scan as a known gap) and generated Splunk,
+Elasticsearch and Sentinel queries.
+
 ## Using the rules
 
 **Suricata 7:**
