@@ -1,3 +1,4 @@
+import re
 import socket
 
 try:
@@ -103,10 +104,17 @@ def is_randomized_mac(mac):
     """
     Check if a MAC address is locally administered (randomized).
     Randomized MACs have the second-least-significant bit of the first octet set.
+
+    Accepts any common notation (aa:bb:cc:dd:ee:ff, AA-BB-CC-DD-EE-FF,
+    aabb.ccdd.eeff). Anything that isn't a 12-digit MAC returns False
+    instead of raising.
     """
     if not mac:
         return False
-    first_octet = int(mac.split(":")[0], 16)
+    digits = re.sub(r"[^0-9A-Fa-f]", "", mac)   # drop :, -, . separators
+    if len(digits) != 12:
+        return False
+    first_octet = int(digits[:2], 16)
     return bool(first_octet & 0x02)
 
 
@@ -121,8 +129,10 @@ def mac_vendor_lookup(mac):
     if is_randomized_mac(mac):
         return "Randomized MAC (Privacy Mode)"
 
-    # Check curated OUI table first (covers vendors missing from manuf DB)
-    prefix = mac.lower()[:8]
+    # Check curated OUI table first (covers vendors missing from manuf DB).
+    # Rebuild the prefix as "aa:bb:cc" so dash/dot notations match too.
+    digits = re.sub(r"[^0-9A-Fa-f]", "", mac).lower()
+    prefix = ":".join(digits[i:i + 2] for i in (0, 2, 4))
     if prefix in OUI_TABLE:
         return OUI_TABLE[prefix]
 
